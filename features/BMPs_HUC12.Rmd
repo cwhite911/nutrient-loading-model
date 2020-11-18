@@ -9,6 +9,24 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r libs, include=FALSE}
+library(reshape2) # (tidy) R provides a variety of methods for reshaping data prior to analysis.
+library(dplyr) # (tidy) dplyr is a grammar of data manipulation, providing a consistent set of verbs that help you solve the most common data manipulation challenges:
+library(lme4) # lme4 provides functions for fitting and analyzing mixed models: linear (lmer), generalized linear(glmer) and nonlinear (nlmer.)
+library(ggplot2) # (tidy) gplot2 is a system for declaratively creating graphics
+library(xlsx) # Provide R functions to read/write/format Excel 2007 and Excel 97/2000/XP/2003 file formats.
+library(rstan) # Stan is a state-of-the-art platform for statistical modeling and high-performance statistical computation. 
+library(rstudioapi) # Access the RStudio API (if available) and provide informative error messages when it's not.
+library(loo)  # Efficient Leave-One-Out Cross-Validation and WAIC for Bayesian Models
+library(MASS) # Support Functions and Datasets for Venables and Ripley's MASS
+library(rcompanion) # Functions to Support Extension Education Program Evaluation
+library(ggpubr) # 'ggplot2' Based Publication Ready Plots
+library(matrixStats) # Functions that Apply to Rows and Columns of Matrices (and to Vectors)
+library(pacman) # Package Management Tool
+library(cowplot) # add-on to ggplot. It provides various features that help with creating publication-quality figures, such as a set of themes, functions to align plots and arrange them into complex compound figures, and functions that make it easy to annotate plots and or mix plots with images.
+library(hexbin) # Bivariate Binning Into Hexagon Cells
+```
+
 ## R Markdown
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
@@ -26,5 +44,3 @@ You can also embed plots, for example:
 ```{r pressure, echo=FALSE}
 plot(pressure)
 ```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
