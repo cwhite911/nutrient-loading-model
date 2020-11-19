@@ -1,6 +1,6 @@
-[![Launch binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cwhite911/wrri-subwatershed-features/main?urlpath=rstudio)
+[![Launch binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cwhite911/nutrient-loading-model/main?urlpath=rstudio)
 
-# wrri-subwatershed-features
+# nutrient-loading-model
 Feature generation pipeline for HUC12 sub watershed nutrient loading model. 
 
 # How to use
