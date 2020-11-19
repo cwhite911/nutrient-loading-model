@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/r
 # Edit at https://www.toptal.com/developers/gitignore?templates=r
 
+# Data
+model/data
+
 ### R ###
 # History files
 .Rhistory
@@ -8,6 +11,11 @@
 
 # Session Data files
 .RData
+
+# RSudio
+.rstudio
+.cache
+.gdal
 
 # User-specific files
 .Ruserdata
