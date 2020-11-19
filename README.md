@@ -7,10 +7,15 @@ Feature generation pipeline for HUC12 sub watershed nutrient loading model.
 
 ## Build the docker image
 ```docker
-docker build --tag wrrimodel .
+docker build -t wrrimodel .
 ```
 
 ## Run the development environment container
 ```docker
-docker run --rm -it --name wrri-model-dev -p 8787:8787 --mount type=bind,source=<absolutepath>/model,target=/usr/local/src/model --tag wrrimodel:latest .
+docker run --rm -it --name wrri-model-dev -p 8787:8787 --mount type=bind,source=<absolute path>/nutrient-loading-model/model,target=/home/rstudio/ -e DISABLE_AUTH=true wrrimodel:latest
+```
+
+## Go to RStudio in the browser
+```
+http://localhost:8787/
 ```
