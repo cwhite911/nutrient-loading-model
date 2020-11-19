@@ -8,31 +8,62 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Nutrient Loading Model
 
 ```{r libs, include=FALSE}
 library(reshape2) # (tidy) R provides a variety of methods for reshaping data prior to analysis.
 library(dplyr) # (tidy) dplyr is a grammar of data manipulation, providing a consistent set of verbs that help you solve the most common data manipulation challenges:
-library(lme4) # lme4 provides functions for fitting and analyzing mixed models: linear (lmer), generalized linear(glmer) and nonlinear (nlmer.)
+# library(lme4) # lme4 provides functions for fitting and analyzing mixed models: linear (lmer), generalized linear(glmer) and nonlinear (nlmer.)
 library(ggplot2) # (tidy) gplot2 is a system for declaratively creating graphics
-library(xlsx) # Provide R functions to read/write/format Excel 2007 and Excel 97/2000/XP/2003 file formats.
-library(rstan) # Stan is a state-of-the-art platform for statistical modeling and high-performance statistical computation. 
+# library(xlsx) # Provide R functions to read/write/format Excel 2007 and Excel 97/2000/XP/2003 file formats.
+# library(rstan) # Stan is a state-of-the-art platform for statistical modeling and high-performance statistical computation. 
 library(rstudioapi) # Access the RStudio API (if available) and provide informative error messages when it's not.
-library(loo)  # Efficient Leave-One-Out Cross-Validation and WAIC for Bayesian Models
+# library(loo)  # Efficient Leave-One-Out Cross-Validation and WAIC for Bayesian Models
 library(MASS) # Support Functions and Datasets for Venables and Ripley's MASS
-library(rcompanion) # Functions to Support Extension Education Program Evaluation
+# library(rcompanion) # Functions to Support Extension Education Program Evaluation
 library(ggpubr) # 'ggplot2' Based Publication Ready Plots
-library(matrixStats) # Functions that Apply to Rows and Columns of Matrices (and to Vectors)
+# library(matrixStats) # Functions that Apply to Rows and Columns of Matrices (and to Vectors)
 library(pacman) # Package Management Tool
 library(cowplot) # add-on to ggplot. It provides various features that help with creating publication-quality figures, such as a set of themes, functions to align plots and arrange them into complex compound figures, and functions that make it easy to annotate plots and or mix plots with images.
 library(hexbin) # Bivariate Binning Into Hexagon Cells
+library(RColorBrewer)
+require(gridExtra)
 ```
+## HUC12 Subwatersheds
+
+```{r}
+library(rgdal)
+huc12 <- readOGR(dsn = "~/data/HUC12/", layer = "HUC12", stringsAsFactors = F)
+head(huc12)
+```
+```{r}
+plot(huc12)
+```
+
+
+```{r}
+huc12@data$basin <- as.factor(huc12$basin)                              # Convert character vector to factor
+retention_plot <- spplot(huc12, "retention", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Retention")
+area_plot <- spplot(huc12, "Area", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Area")
+basin_plot <- spplot(huc12, "basin", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Basin Membership")
+plot_grid(basin_plot,
+          area_plot,
+          retention_plot, 
+          align = "hv", ncol = 3)
+```
+
+
+```{r}
+spplot(huc12, c("Area","basin", "retention"), col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 by Basin", scales = list(draw = TRUE))
+```
+
 
 ## Stream buffers
 
 Analyzing stream buffers, ponds, other BMPs provided by the municipalities, building footprints and NLCD data.
 
 ```{r streambufs}
-
+sessionInfo()
 ```
 
 ## ponds
