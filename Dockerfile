@@ -28,6 +28,9 @@ RUN apt-get update \
     tk-dev \
     unixodbc-dev
 
+# Installing rstan independently becasue it was throwing an error using install2.r
+RUN R -e "install.packages('rstan', repos = 'https://cloud.r-project.org/', dependencies = TRUE)"
+
 # https://github.com/rocker-org/geospatial
 RUN install2.r --error \
     reshape2 \
@@ -36,7 +39,6 @@ RUN install2.r --error \
     ggplot2 \
     ggpubr \
     xlsx \
-    rstan \
     rstudioapi \
     loo \
     MASS \
@@ -72,7 +74,6 @@ RUN install2.r --error \
     ## from bioconductor
     && R -e "BiocManager::install('rhdf5', update=FALSE, ask=FALSE)"
 
-
-
+RUN rm -r /home/rstudio/kitematic
 
 
