@@ -23,9 +23,9 @@ http://localhost:8787/
 
 ## How To...
 ### Add or update a R Library 
-Add or remove R Libraries in install.R and then rebuild the docker container to see changes.
+Add or remove R Libraries in `install.R` and then rebuild the docker container to see changes.
 
 ### Add or update a linux package 
-Add or remove linux packages in apt.txt then rebuild the docker container to see changes.
+Add or remove linux packages in `apt.txt` then rebuild the docker container to see changes.
 ### Add or update a Data Source
-Add or update data sources in model/config.yml
+Add or update data sources in `model/config.yml`
