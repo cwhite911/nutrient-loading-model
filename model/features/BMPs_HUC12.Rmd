@@ -29,6 +29,12 @@ library(hexbin) # Bivariate Binning Into Hexagon Cells
 library(RColorBrewer)
 require(gridExtra)
 ```
+
+## Import Configuration file
+```{r}
+config <- config::get(file = "model/config.yml")
+```
+
 ## HUC12 Subwatersheds
 
 ```{r}

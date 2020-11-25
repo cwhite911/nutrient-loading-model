@@ -1,0 +1,4 @@
+# https://cran.r-project.org/web/packages/config/vignettes/introduction.html
+default:
+  data: "~/data"
+  huc12: "HUC12"
