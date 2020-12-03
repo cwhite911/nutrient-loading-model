@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  rstudio:
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      - type: bind
+      - .:/home/rstudio/
+      - logvolume01:/var/log
+    links:
+      - postgis
+  postgis:
+    image: mdillon/postgis
+volumes:
+  logvolume01: {}

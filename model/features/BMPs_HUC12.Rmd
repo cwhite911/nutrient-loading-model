@@ -27,7 +27,9 @@ library(pacman) # Package Management Tool
 library(cowplot) # add-on to ggplot. It provides various features that help with creating publication-quality figures, such as a set of themes, functions to align plots and arrange them into complex compound figures, and functions that make it easy to annotate plots and or mix plots with images.
 library(hexbin) # Bivariate Binning Into Hexagon Cells
 library(RColorBrewer)
+library(rgeos)
 require(gridExtra)
+
 ```
 
 ## Import Configuration file
@@ -35,11 +37,22 @@ require(gridExtra)
 config <- config::get(file = "model/config.yml")
 ```
 
+### Connect to database
+```{r connect, message=F, warning=F}
+library(RPostgreSQL)
+library(postGIStools)
+library(RColorBrewer)
+
+con <- dbConnect(PostgreSQL(), dbname = "WRRI", user = "postgres",
+                 host = "localhost",
+                 port="5432")
+```
+
 ## HUC12 Subwatersheds
 
 ```{r}
 library(rgdal)
-huc12 <- readOGR(dsn = "~/data/HUC12/", layer = "HUC12", stringsAsFactors = F)
+huc12 <- readOGR(dsn = paste(config$data, config$huc12, sep="/"), layer = config$huc12, stringsAsFactors = F)
 head(huc12)
 ```
 ```{r}
@@ -69,7 +82,17 @@ spplot(huc12, c("Area","basin", "retention"), col.regions=rev(brewer.pal(7,'Spec
 Analyzing stream buffers, ponds, other BMPs provided by the municipalities, building footprints and NLCD data.
 
 ```{r streambufs}
-sessionInfo()
+paste(config$data, config$streambuffer$file, sep="/")
+
+stream_buffers_gpkg <- readOGR(paste(config$data, config$streambuffer$file, sep="/"), stringsAsFactors = F)
+
+```
+
+```{r}
+huc12_buffers_30m <- gIntersection(huc12, stream_buffers_gpkg)
+plot(huc12, col=c('grey'))
+plot(huc12_buffers_30m, col=c('blue'), add=T)
+
 ```
 
 ## ponds
@@ -86,7 +109,42 @@ sessionInfo()
 
 ## Building Footprints
 
+```{sql bfootprint_view_sql}
+
+CREATE VIEW huc12_blds_in_strbuff AS (
+    WITH hu12_buildings AS (
+        -- Spatial join huc12 and building footprints to be used in aggregation query
+        SELECT hu12.huc_12, hu12.hu_12_name, bf.bldg_id, bf.year_built,
+            bf.occup_type,ST_AREA(ST_SetSRID(bf.geom, 6542)) as total_area,
+            (bf.htd_sq_ft / 10.764) as htd_sq_m, --convert to meters
+            ST_SetSRID(bf.geom, 6542) as bf_geom, hu12.geom as hu12_geom
+        FROM huc_12 as hu12
+        JOIN building_footprints as bf
+            -- Convert building to center point and us that to determine which subwatershed a building is in.
+            ON ST_Contains(hu12.geom, ST_CENTROID(ST_SetSRID(bf.geom, 6542)))
+    )
+
+    -- Aggregate builing footprints in each huc12 if they intersect the stream buffer.
+    SELECT hu_bld.huc_12,hu_bld.hu_12_name,hu_bld.year_built,
+        COUNT(hu_bld.bldg_id) as new_buildings,
+        sum(count(hu_bld.bldg_id)) OVER (PARTITION BY hu_bld.hu_12_name ORDER BY hu_bld.hu_12_name, hu_bld.year_built asc rows between unbounded preceding and current row) AS total_buildings,
+        (sum(sum(hu_bld.total_area)) OVER (ORDER BY hu_bld.hu_12_name, hu_bld.year_built)/ 1e6) as total_building_sq_km,
+        (sum(sum(hu_bld.htd_sq_m)) OVER (ORDER BY hu_bld.hu_12_name, hu_bld.year_built) / 1e6) as total_heated_sq_km,
+        hu_bld.hu12_geom
+    FROM hu12_buildings as hu_bld, stream_buffers_30m as sb
+    WHERE ST_INTERSECTS(hu_bld.bf_geom, sb.geom) --AND hu_bld.hu_12_name = 'Crooked Creek-Eno River'
+    GROUP BY hu_bld.huc_12,hu_bld.hu_12_name,hu_bld.year_built, hu_bld.hu12_geom
+    ORDER BY hu_bld.hu_12_name, hu_bld.year_built ASC																					
+)
+
+
+```
+
 ```{r bfootprints, echo=TRUE}
+
+hu12_building_footprints_df <- get_postgis_query(con, 
+    "SELECT * FROM huc12_blds_in_strbuff",
+geom_name = "geom")
 
 ```
 

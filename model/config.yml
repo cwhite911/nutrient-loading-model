@@ -2,3 +2,6 @@
 default:
   data: "~/data"
   huc12: "HUC12"
+  streambuffer:
+    file: "streambuffer/30m/stream_buffers_30m.gpkg"
+    layername: "stream_buffer_30m"
