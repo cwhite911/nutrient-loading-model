@@ -6,11 +6,21 @@ services:
       - "8787:8787"
     volumes:
       - type: bind
-      - .:/home/rstudio/
+        source: ./
+        target: /home/rstudio/
       - logvolume01:/var/log
     links:
       - postgis
+    environment:
+      - DISABLE_AUTH=true
   postgis:
     image: mdillon/postgis
+    # volumes:
+      # - ./postgres.conf:/etc/postgresql/postgresql.conf
+      # - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    # command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    restart: always
+    ports:
+      - "5430:5432"
 volumes:
   logvolume01: {}

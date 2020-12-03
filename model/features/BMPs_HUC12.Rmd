@@ -43,9 +43,13 @@ library(RPostgreSQL)
 library(postGIStools)
 library(RColorBrewer)
 
-con <- dbConnect(PostgreSQL(), dbname = "WRRI", user = "postgres",
-                 host = "localhost",
+con <- dbConnect(PostgreSQL(), dbname = "postgres", user = "postgres",
+                 host = "postgis",
                  port="5432")
+```
+### Test Connection
+```{r}
+dbListTables(con) 
 ```
 
 ## HUC12 Subwatersheds
@@ -109,6 +113,8 @@ plot(huc12_buffers_30m, col=c('blue'), add=T)
 
 ## Building Footprints
 
+### Aggregated view of building footprints found in the 30m stream buffer by HUC12.
+
 ```{sql bfootprint_view_sql}
 
 CREATE VIEW huc12_blds_in_strbuff AS (
@@ -130,7 +136,7 @@ CREATE VIEW huc12_blds_in_strbuff AS (
         sum(count(hu_bld.bldg_id)) OVER (PARTITION BY hu_bld.hu_12_name ORDER BY hu_bld.hu_12_name, hu_bld.year_built asc rows between unbounded preceding and current row) AS total_buildings,
         (sum(sum(hu_bld.total_area)) OVER (ORDER BY hu_bld.hu_12_name, hu_bld.year_built)/ 1e6) as total_building_sq_km,
         (sum(sum(hu_bld.htd_sq_m)) OVER (ORDER BY hu_bld.hu_12_name, hu_bld.year_built) / 1e6) as total_heated_sq_km,
-        hu_bld.hu12_geom
+        hu_bld.hu12_geom as geom
     FROM hu12_buildings as hu_bld, stream_buffers_30m as sb
     WHERE ST_INTERSECTS(hu_bld.bf_geom, sb.geom) --AND hu_bld.hu_12_name = 'Crooked Creek-Eno River'
     GROUP BY hu_bld.huc_12,hu_bld.hu_12_name,hu_bld.year_built, hu_bld.hu12_geom
@@ -146,10 +152,18 @@ hu12_building_footprints_df <- get_postgis_query(con,
     "SELECT * FROM huc12_blds_in_strbuff",
 geom_name = "geom")
 
+head(hu12_building_footprints_df)
+# spplot(hu12_building_footprints_df, col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Buildings in 30m Stream Buffer", scales = list(draw = TRUE))
+
 ```
 
 ## NLCD
 
 ```{r nlcd, echo=TRUE}
+spplot(hu12_building_footprints_df, c("total_buildings"),
+ cols="year_built",
+ col.regions=rev(brewer.pal(7,'Spectral')),
+ cuts=6, main="Number of Buildings in 30m Stream Buffer by HUC12",
+ scales = list(draw = TRUE))
 
 ```
