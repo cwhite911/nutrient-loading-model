@@ -43,7 +43,7 @@ library(RPostgreSQL)
 library(postGIStools)
 library(RColorBrewer)
 
-con <- dbConnect(PostgreSQL(), dbname = "postgres", user = "postgres",
+con <- dbConnect(PostgreSQL(), dbname = "WRRI", user = "postgres",
                  host = "postgis",
                  port="5432")
 ```
@@ -52,23 +52,48 @@ con <- dbConnect(PostgreSQL(), dbname = "postgres", user = "postgres",
 dbListTables(con) 
 ```
 
+**List all tables, and identify geometry column and type for each table**
+
+```{r}
+table_info <- get_postgis_query(con, 
+  "SELECT f_table_name as table, f_geometry_column as geometry_column, srid, type
+  FROM geometry_columns 
+  WHERE f_table_schema = 'public' 
+  AND f_geometry_column = 'geom'"
+)
+
+table_info
+
+```
+
 ## HUC12 Subwatersheds
 
 ```{r}
 library(rgdal)
 huc12 <- readOGR(dsn = paste(config$data, config$huc12, sep="/"), layer = config$huc12, stringsAsFactors = F)
 head(huc12)
+
 ```
+
 ```{r}
 plot(huc12)
 ```
 
+```{r}
+hu12_df <- get_postgis_query(con, "SELECT * FROM huc_12 WHERE basin IN ('CPF', 'NEU')",
+geom_name = "geom")
+```
 
 ```{r}
-huc12@data$basin <- as.factor(huc12$basin)                              # Convert character vector to factor
-retention_plot <- spplot(huc12, "retention", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Retention")
-area_plot <- spplot(huc12, "Area", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Area")
-basin_plot <- spplot(huc12, "basin", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Basin Membership")
+spplot(hu12_df)
+```
+
+
+```{r}
+huc12_df@data$basin <- as.factor(huc12$basin)                              # Convert character vector to factor
+retention_plot <- spplot(huc12_df, "retention", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Retention")
+area_plot <- spplot(huc12_df, "Area", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Area")
+basin_plot <- spplot(huc12_df, "basin", col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Basin Membership")
 plot_grid(basin_plot,
           area_plot,
           retention_plot, 
@@ -86,9 +111,7 @@ spplot(huc12, c("Area","basin", "retention"), col.regions=rev(brewer.pal(7,'Spec
 Analyzing stream buffers, ponds, other BMPs provided by the municipalities, building footprints and NLCD data.
 
 ```{r streambufs}
-paste(config$data, config$streambuffer$file, sep="/")
 
-stream_buffers_gpkg <- readOGR(paste(config$data, config$streambuffer$file, sep="/"), stringsAsFactors = F)
 
 ```
 
@@ -148,22 +171,160 @@ CREATE VIEW huc12_blds_in_strbuff AS (
 
 ```{r bfootprints, echo=TRUE}
 
+hu12_building_footprints_30m_stream_buff_df <- get_postgis_query(con, 
+    "SELECT * FROM huc12_blds_in_strbuff WHERE hu_12_name = 'Back Creek' AND year_built >= '1970'",
+geom_name = "geom")
+
+head(hu12_building_footprints_30m_stream_buff_df)
+```
+```{r}
 hu12_building_footprints_df <- get_postgis_query(con, 
-    "SELECT * FROM huc12_blds_in_strbuff",
+    "SELECT * FROM huc12_blds WHERE hu_12_name = 'Back Creek' AND year_built >= '1970' AND dwq_basin = 'Cape Fear'",
 geom_name = "geom")
 
 head(hu12_building_footprints_df)
-# spplot(hu12_building_footprints_df, col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 Buildings in 30m Stream Buffer", scales = list(draw = TRUE))
+```
+
+```{r}
+hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
+hu12_building_footprints_30m_stream_buff_df@data$year_built <- as.Date(as.character(hu12_building_footprints_30m_stream_buff_df@data$year_built), format = "%Y")
+ggplot() + 
+  geom_line(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "red") +
+  geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "red") +
+  geom_line(data = hu12_building_footprints_df@data, aes(x = year_built, y = total_buildings), color = "blue") +
+  geom_point(data = hu12_building_footprints_df@data, aes(x = year_built, y = total_buildings), color = "blue") +
+  #xlab('Year Built') +
+  #ylab('Total Buildings') +
+  labs(color="Buiding Inclusion",
+       title = "Total Buildings in the Back Creek Subwatershed (HUC12)",
+       subtitle = "Cape Fear River Basin (1970 - 2014)",
+       x = "Year Built",
+       y = "Total Buildings") + theme(legend.position = "bottom")
+```
+
+```{r}
+hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
+hu12_building_footprints_30m_stream_buff_df@data$year_built <- as.Date(as.character(hu12_building_footprints_30m_stream_buff_df@data$year_built), format = "%Y")
+ggplot() + 
+  geom_line(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "red") +
+  geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "red") +
+  labs(color="Buiding Inclusion",
+       title = "Total Buildings inside 30m Stream Buffer in the Back Creek (HUC12)",
+       subtitle = "1970 - 2014",
+       x = "Year Built",
+       y = "Total Buildings") + theme(legend.position = "bottom")
+```
+
+
+
+
+```{r}
+ggplot() + 
+  geom_line(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = new_buildings), color = "red") +
+  geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = new_buildings), color = "red") +
+  geom_line(data = hu12_building_footprints_df@data, aes(x = year_built, y = new_buildings), color = "blue") +
+  geom_point(data = hu12_building_footprints_df@data, aes(x = year_built, y = new_buildings), color = "blue") +
+  #xlab('Year Built') +
+  #ylab('Total Buildings') +
+  labs(color="Buiding Inclusion",
+       title = "New Buildings in the Back Creek Subwatershed (HUC12)",
+       subtitle = "Cape Fear River Basin (1970 - 2014)",
+       x = "Year Built",
+       y = "Total Buildings") + theme(legend.position = "bottom")
+```
+
+
+
+```{r}
+#colour = variable, group = variable
+hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
+ggplot(hu12_building_footprints_df@data, aes(x = year_built, y = new_buildings, colour= dwq_basin)) +
+  facet_wrap(~hu_12_name) +
+  geom_point() +
+  geom_line() + 
+  #scale_colour_brewer(palette="Spectral", direction=-1) +
+  scale_x_date(breaks = hu12_building_footprints_df@data$year_built) + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+
 
 ```
+
+
+```{r}
+sptmp_df <- data.frame(matrix(ncol = 42, nrow = 0))
+colnames(sptmp_df) <- 1970:2011
+#rownames(sptmp_df) <- c("Back Creek")
+sptmp_df
+sptmp_df[nrow(sptmp_df) + 1,] = hu12_building_footprints_df@data$new_buildings
+sptmp_df
+length(sptmp_df)
+```
+
+```{r}
+hu12_df <- get_postgis_query(con, 
+    "SELECT fid, geom FROM wbd_huc_10_12 WHERE hu_12_name = 'Back Creek' AND dwq_basin = 'Cape Fear'",
+geom_name = "geom")
+```
+
+
+
+```{r}
+#unique(hu12_building_footprints_df@data$year_built)
+library(lattice)
+library(spacetime)
+library(xts)
+
+yrs <- 1970:2011 #unique(hu12_building_footprints_df@data$year_built) #1970:2015
+time <- as.POSIXct(paste(yrs, "-12-07", sep=""), tz = "GMT")
+
+#nrow(object@data) == length(object@sp) * nrow(object@time)
+nrow(hu12_building_footprints_df@data)
+length(hu12_df)
+length(time)
+hu12_building_footprints_df.st <- STFDF(hu12_df, time,data=hu12_building_footprints_df@data )
+hu12_building_footprints_df.st[,,"total_buildings"]
+stplot(hu12_building_footprints_df.st[,,"total_buildings"], yrs)
+
+
+#R> # deselect District of Columbia, polygon 8, which is not present in Produc:
+#R> Produc.st = STFDF(states[-8], time, Produc[order(Produc[2], Produc[1]),])
+#R> library(RColorBrewer)
+#R> stplot(Produc.st[,,"unemp"], yrs, col.regions = brewer.pal(9, "YlOrRd"),cuts=9)
+```
+
+
+```{r}
+data("Produc", package = "plm")
+Produc[1:5,1:9]
+
+library(maps)
+states.m = map('state', plot=FALSE, fill=TRUE)
+IDs <- sapply(strsplit(states.m$names, ":"), function(x) x[1])
+library(maptools)
+
+states = map2SpatialPolygons(states.m, IDs=IDs)
+
+yrs = 1970:1986
+time = as.POSIXct(paste(yrs, "-01-01", sep=""), tz = "GMT")
+#When combining all this information, we do not need to reorder states because states and Produc order states alphabetically. #We need to de-select District of Columbia, which is not present in Produc:
+# deselect District of Columbia, polygon 8, which is not present in Produc:
+library(spacetime)
+length(time)
+length(states[-8])
+nrow(Produc[order(Produc[2], Produc[1]),])
+Produc.st = STFDF(states[-8], time, Produc[order(Produc[2], Produc[1]),])
+library(RColorBrewer)
+# Produc.st[,,"unemp"] - Don't run this 
+stplot(Produc.st[,,"unemp"], yrs, col.regions = brewer.pal(9, "YlOrRd"), cuts = 9)
+```
+
 
 ## NLCD
 
 ```{r nlcd, echo=TRUE}
-spplot(hu12_building_footprints_df, c("total_buildings"),
- cols="year_built",
- col.regions=rev(brewer.pal(7,'Spectral')),
- cuts=6, main="Number of Buildings in 30m Stream Buffer by HUC12",
- scales = list(draw = TRUE))
+head(hu12_building_footprints_df@data,100)
 
 ```
