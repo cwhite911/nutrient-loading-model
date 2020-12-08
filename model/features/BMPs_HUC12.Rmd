@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r libs, include=FALSE}
 library(reshape2) # (tidy) R provides a variety of methods for reshaping data prior to analysis.
 library(dplyr) # (tidy) dplyr is a grammar of data manipulation, providing a consistent set of verbs that help you solve the most common data manipulation challenges:
+library(tidyr)
 # library(lme4) # lme4 provides functions for fitting and analyzing mixed models: linear (lmer), generalized linear(glmer) and nonlinear (nlmer.)
 library(ggplot2) # (tidy) gplot2 is a system for declaratively creating graphics
 # library(xlsx) # Provide R functions to read/write/format Excel 2007 and Excel 97/2000/XP/2003 file formats.
@@ -66,21 +67,28 @@ table_info
 
 ```
 
+```{r}
+table_count <- get_postgis_query(con, 
+  "SELECT pgClass.relname   AS tableName,
+  pgClass.reltuples AS features
+  FROM pg_class as pgClass
+  JOIN pg_namespace pgNamespace ON (pgNamespace.oid = pgClass.relnamespace)
+  WHERE pgNamespace.nspname = 'public' 
+    AND pgClass.relkind='r' 
+    AND pgClass.relname != 'spatial_ref_sys'
+  ORDER BY features DESC"
+)
+
+knitr::kable(head(table_count, 50))
+```
+
+
 ## HUC12 Subwatersheds
 
-```{r}
-library(rgdal)
-huc12 <- readOGR(dsn = paste(config$data, config$huc12, sep="/"), layer = config$huc12, stringsAsFactors = F)
-head(huc12)
 
-```
 
 ```{r}
-plot(huc12)
-```
-
-```{r}
-hu12_df <- get_postgis_query(con, "SELECT * FROM huc_12 WHERE basin IN ('CPF', 'NEU')",
+hu12_df <- get_postgis_query(con, "SELECT *, ST_UNION(fl.geom,jl.geom) as aoi_geom FROM huc_12 as h12, jordan_lake_watershed as jl, falls_lake_watershed as fl WHERE ST_Intersects(h12.geom, aoi_geom)",
 geom_name = "geom")
 ```
 
@@ -105,34 +113,6 @@ plot_grid(basin_plot,
 spplot(huc12, c("Area","basin", "retention"), col.regions=rev(brewer.pal(7,'Spectral')), cuts=6, main="HUC12 by Basin", scales = list(draw = TRUE))
 ```
 
-
-## Stream buffers
-
-Analyzing stream buffers, ponds, other BMPs provided by the municipalities, building footprints and NLCD data.
-
-```{r streambufs}
-
-
-```
-
-```{r}
-huc12_buffers_30m <- gIntersection(huc12, stream_buffers_gpkg)
-plot(huc12, col=c('grey'))
-plot(huc12_buffers_30m, col=c('blue'), add=T)
-
-```
-
-## ponds
-
-```{r ponds, echo=FALSE}
-
-```
-
-## BMPs
-
-```{r bmps, echo=TRUE}
-
-```
 
 ## Building Footprints
 
@@ -177,6 +157,7 @@ geom_name = "geom")
 
 head(hu12_building_footprints_30m_stream_buff_df)
 ```
+
 ```{r}
 hu12_building_footprints_df <- get_postgis_query(con, 
     "SELECT * FROM huc12_blds WHERE hu_12_name = 'Back Creek' AND year_built >= '1970' AND dwq_basin = 'Cape Fear'",
@@ -247,11 +228,6 @@ ggplot(hu12_building_footprints_df@data, aes(x = year_built, y = new_buildings, 
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-```{r}
-
-
-```
-
 
 ```{r}
 sptmp_df <- data.frame(matrix(ncol = 42, nrow = 0))
@@ -265,11 +241,41 @@ length(sptmp_df)
 
 ```{r}
 hu12_df <- get_postgis_query(con, 
-    "SELECT fid, geom FROM wbd_huc_10_12 WHERE hu_12_name = 'Back Creek' AND dwq_basin = 'Cape Fear'",
+    "SELECT *
+     FROM huc_12_study_area",
 geom_name = "geom")
 ```
 
+```{r}
+hu12_building_footprints_df <- get_postgis_query(con, 
+    "SELECT huc_12, hu_12_name, year_built, total_buildings FROM huc12_blds as h12 WHERE  year_built >= '1970'")
+```
 
+```{r}
+
+aoi_df <- get_postgis_query(con, 
+    "SELECT ST_UNION(fl.geom,jl.geom) as geom 
+		FROM jordan_lake_watershed as jl, falls_lake_watershed as fl",
+geom_name = "geom")
+
+counties_df <- get_postgis_query(con, 
+    "SELECT countyname, geom 
+		FROM counties",
+geom_name = "geom")
+
+
+```
+
+```{r}
+length(hu12_df)
+plot(counties_df,  border=c('black'))
+plot(hu12_df, border="grey", add=T)
+plot(aoi_df,  border=c('blue'), add=T)
+
+#plot(captical_area)
+#plot(crosses ,col=c('grey'), add=T )
+
+```
 
 ```{r}
 #unique(hu12_building_footprints_df@data$year_built)
@@ -277,16 +283,29 @@ library(lattice)
 library(spacetime)
 library(xts)
 
-yrs <- 1970:2011 #unique(hu12_building_footprints_df@data$year_built) #1970:2015
-time <- as.POSIXct(paste(yrs, "-12-07", sep=""), tz = "GMT")
+hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
+yrs <- unique(hu12_building_footprints_df@data$year_built) #1970:2015
+#time <- as.POSIXct(paste(yrs, "-12-07", sep=""), tz = "GMT")
+time <- as.POSIXct(yrs, tz = "GMT")
 
 #nrow(object@data) == length(object@sp) * nrow(object@time)
+print("data")
 nrow(hu12_building_footprints_df@data)
-length(hu12_df)
+("shape")
+length(hu12_df@polygons)
+print("time")
 length(time)
-hu12_building_footprints_df.st <- STFDF(hu12_df, time,data=hu12_building_footprints_df@data )
-hu12_building_footprints_df.st[,,"total_buildings"]
-stplot(hu12_building_footprints_df.st[,,"total_buildings"], yrs)
+
+#sptmp_df <- data.frame(matrix(ncol = 42, nrow = 0))
+#colnames(sptmp_df) <- 1970:2011
+tmp_data <- data.frame(hu12_building_footprints_df@data$total_buildings) 
+print("data")
+nrow(tmp_data)
+colnames(tmp_data) <- c("total_buildings")
+tmp_data
+hu12_building_footprints_df.st <- STFDF(hu12_df, time,data=tmp_data)
+#hu12_building_footprints_df.st[,,"total_buildings"]
+stplot(hu12_building_footprints_df.st,yrs,col.regions = brewer.pal(9, "viridis"))
 
 
 #R> # deselect District of Columbia, polygon 8, which is not present in Produc:
@@ -301,30 +320,16 @@ data("Produc", package = "plm")
 Produc[1:5,1:9]
 
 library(maps)
-states.m = map('state', plot=FALSE, fill=TRUE)
-IDs <- sapply(strsplit(states.m$names, ":"), function(x) x[1])
-library(maptools)
-
-states = map2SpatialPolygons(states.m, IDs=IDs)
-
-yrs = 1970:1986
-time = as.POSIXct(paste(yrs, "-01-01", sep=""), tz = "GMT")
-#When combining all this information, we do not need to reorder states because states and Produc order states alphabetically. #We need to de-select District of Columbia, which is not present in Produc:
-# deselect District of Columbia, polygon 8, which is not present in Produc:
-library(spacetime)
-length(time)
-length(states[-8])
-nrow(Produc[order(Produc[2], Produc[1]),])
-Produc.st = STFDF(states[-8], time, Produc[order(Produc[2], Produc[1]),])
-library(RColorBrewer)
-# Produc.st[,,"unemp"] - Don't run this 
-stplot(Produc.st[,,"unemp"], yrs, col.regions = brewer.pal(9, "YlOrRd"), cuts = 9)
 ```
 
 
 ## NLCD
 
 ```{r nlcd, echo=TRUE}
-head(hu12_building_footprints_df@data,100)
+plot(hu12_building_footprints_df['total_buildings'])
+#ggplot() + 
+ # geom_sf(data = hu12_building_footprints_df, aes(fill = 'total_buildings')) #+ 
+  #facet_wrap(~year_built, ncol = 6) #+
+  #scale_y_continuous(breaks = 34:36)
 
 ```
