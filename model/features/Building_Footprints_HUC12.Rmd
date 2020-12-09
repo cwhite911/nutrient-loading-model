@@ -1,0 +1,290 @@
+---
+title: "Building_Footprints_HUC12"
+author: "Corey White"
+date: "12/9/2020"
+output:
+  md_document:
+    variant: gfm
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Nutrient Loading Model
+
+```{r libs, include=FALSE}
+library(reshape2) # (tidy) R provides a variety of methods for reshaping data prior to analysis.
+library(dplyr) # (tidy) dplyr is a grammar of data manipulation, providing a consistent set of verbs that help you solve the most common data manipulation challenges:
+library(tidyr)
+# library(lme4) # lme4 provides functions for fitting and analyzing mixed models: linear (lmer), generalized linear(glmer) and nonlinear (nlmer.)
+library(ggplot2) # (tidy) gplot2 is a system for declaratively creating graphics
+# library(xlsx) # Provide R functions to read/write/format Excel 2007 and Excel 97/2000/XP/2003 file formats.
+# library(rstan) # Stan is a state-of-the-art platform for statistical modeling and high-performance statistical computation. 
+library(rstudioapi) # Access the RStudio API (if available) and provide informative error messages when it's not.
+# library(loo)  # Efficient Leave-One-Out Cross-Validation and WAIC for Bayesian Models
+library(MASS) # Support Functions and Datasets for Venables and Ripley's MASS
+# library(rcompanion) # Functions to Support Extension Education Program Evaluation
+library(ggpubr) # 'ggplot2' Based Publication Ready Plots
+# library(matrixStats) # Functions that Apply to Rows and Columns of Matrices (and to Vectors)
+library(pacman) # Package Management Tool
+library(cowplot) # add-on to ggplot. It provides various features that help with creating publication-quality figures, such as a set of themes, functions to align plots and arrange them into complex compound figures, and functions that make it easy to annotate plots and or mix plots with images.
+library(hexbin) # Bivariate Binning Into Hexagon Cells
+library(RColorBrewer)
+library(rgeos)
+require(gridExtra)
+library(sf)
+
+```
+
+
+### Connect to database
+```{r connect, message=F, warning=F}
+library(RPostgreSQL)
+library(postGIStools)
+library(RColorBrewer)
+
+con <- dbConnect(PostgreSQL(), dbname = "WRRI", user = "postgres",
+                 host = "postgis",
+                 port="5432")
+```
+### Test Connection
+
+**List all tables, and identify geometry column and type for each table**
+
+```{r table_info}
+table_info <- get_postgis_query(con, 
+  "SELECT f_table_name as table, f_geometry_column as geometry_column, srid, type
+  FROM geometry_columns 
+  WHERE f_table_schema = 'public' 
+  AND f_geometry_column = 'geom'"
+)
+
+
+knitr::kable(head(table_info, 50))
+```
+
+```{r }
+table_count <- get_postgis_query(con, 
+  "SELECT pgClass.relname   AS tableName,
+  pgClass.reltuples AS features
+  FROM pg_class as pgClass
+  JOIN pg_namespace pgNamespace ON (pgNamespace.oid = pgClass.relnamespace)
+  WHERE pgNamespace.nspname = 'public' 
+    AND pgClass.relkind='r' 
+    AND pgClass.relname != 'spatial_ref_sys'
+  ORDER BY features DESC"
+)
+
+knitr::kable(head(table_count, 50))
+```
+
+
+## HUC12 Subwatersheds
+
+Get HUC12 in study area
+```{r huc12studyarea}
+
+hu12_df <- get_postgis_query(con, 
+    "SELECT *
+     FROM huc12_study_area",
+geom_name = "geom")
+```
+
+Get Study area
+```{r study_area}
+aoi_df <- get_postgis_query(con, 
+    "SELECT ST_UNION(fl.geom,jl.geom) as geom 
+		FROM jordan_lake_watershed as jl, falls_lake_watershed as fl",
+geom_name = "geom")
+```
+
+Get Counties
+```{r counties}
+counties_df <- get_postgis_query(con, 
+    "SELECT countyname, geom 
+		FROM counties",
+geom_name = "geom")
+```
+
+```{r}
+query = paste("SELECT countyname, geom FROM counties")
+
+counties_sf <- st_read(con,query = query)
+```
+
+
+```{r studyarea}
+#counties_sf  %>%
+#  ggplot() +
+#   geom_sf(aes()) +
+plot(counties_df,  border=c('black'))
+plot(hu12_df, border="grey", add=T)
+plot(aoi_df,  border=c('blue'), add=T)
+```
+
+
+## Building Footprints
+
+### Aggregated view of building footprints found in the 30m stream buffer by HUC12.
+
+```{r bfootprints, echo=TRUE}
+
+hu12_building_footprints_30m_stream_buff_df <- get_postgis_query(con, 
+    "SELECT * FROM huc12_blds_in_strbuff WHERE hu_12_name = 'Back Creek' AND year_built >= '1970'",
+geom_name = "geom")
+
+
+knitr::kable(head(hu12_building_footprints_30m_stream_buff_df@data,25))
+```
+
+```{r}
+hu12_building_footprints_df <- get_postgis_query(con, 
+    "SELECT * FROM huc12_blds WHERE hu_12_name = 'Back Creek' AND year_built >= '1970' AND dwq_basin = 'Cape Fear'",
+geom_name = "geom")
+
+knitr::kable(head(hu12_building_footprints_df@data,25))
+```
+
+```{r plot_total_buildings}
+colors <- c("All Building Footprints" = "orange", "Building Footprints inside 30m Stream Buffer" = "purple")
+hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
+hu12_building_footprints_30m_stream_buff_df@data$year_built <- as.Date(as.character(hu12_building_footprints_30m_stream_buff_df@data$year_built), format = "%Y")
+
+ggplot() + 
+  geom_line(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "purple") +
+  geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "purple") +
+  geom_line(data = hu12_building_footprints_df@data, aes(x = year_built, y = total_buildings), color = "orange") +
+  geom_point(data = hu12_building_footprints_df@data, aes(x = year_built, y = total_buildings), color = "orange") +
+  #xlab('Year Built') +
+  #ylab('Total Buildings') +
+  labs(color="Buiding Inclusion",
+       title = "Total Buildings in the Back Creek Subwatershed (HUC12)",
+       subtitle = "Cape Fear River Basin (1970 - 2014)",
+       x = "Year Built",
+       y = "Total Buildings")  +
+  scale_color_manual(values = colors) + theme(legend.position = "bottom")
+```
+
+```{r plot_total_buildings_in_sb}
+hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
+hu12_building_footprints_30m_stream_buff_df@data$year_built <- as.Date(as.character(hu12_building_footprints_30m_stream_buff_df@data$year_built), format = "%Y")
+ggplot(hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings)) + 
+  geom_line(color = "purple") +
+  geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "purple") +
+  labs(color="Buiding Inclusion",
+       title = "Total Buildings inside 30m Stream Buffer in the Back Creek (HUC12)",
+       subtitle = "1970 - 2014",
+       x = "Year Built",
+       y = "Total Buildings") + theme(legend.position = "bottom")
+  
+```
+
+
+
+
+```{r plot_new_buildings}
+ggplot() + 
+  geom_line(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = new_buildings), color = "purple") +
+  geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = new_buildings), color = "purple") +
+  geom_line(data = hu12_building_footprints_df@data, aes(x = year_built, y = new_buildings), color = "orange") +
+  geom_point(data = hu12_building_footprints_df@data, aes(x = year_built, y = new_buildings), color = "orange") +
+  #xlab('Year Built') +
+  #ylab('Total Buildings') +
+  labs(color="Buiding Inclusion",
+       title = "New Buildings in the Back Creek Subwatershed (HUC12)",
+       subtitle = "Cape Fear River Basin (1970 - 2014)",
+       x = "Year Built",
+       y = "New Buildings") + theme(legend.position = "bottom")
+```
+
+
+
+
+```{r huc_12_all_buildings}
+all_hu12_building_footprints_df <- get_postgis_query(con, 
+    "SELECT huc_12, hu_12_name, year_built, total_buildings FROM huc12_blds as h12 WHERE  year_built >= '1970' ORDER BY hu_12_name, year_built")
+```
+
+
+```{r pivot_table}
+#fill(data, ..., .direction = c("down", "up", "downup", "updown"))
+ts_buildings <- all_hu12_building_footprints_df  %>% pivot_wider(
+  names_from = year_built,
+  values_from = total_buildings,
+  names_prefix = "year_"#),
+  #values_fill = list(total_buildings = 0)
+)
+
+```
+
+
+
+
+```{r all_hu12_building_footprints_geom_df}
+all_hu12_building_footprints_geom_df <- get_postgis_query(con, 
+    "SELECT DISTINCT huc_12, geom FROM huc12_blds as h12 WHERE year_built >= '1970'"
+    ,geom_name = "geom")
+```
+
+```{r h12_buildings_merged}
+h12_buildings_merged <- merge(all_hu12_building_footprints_geom_df, ts_buildings, by.x = "huc_12", by.y = "huc_12")
+```
+
+```{r}
+years <- 1970:2014
+map_titles <- paste("year_", years, sep="")
+#spplot(h12_buildings_merged, rev(map_titles), names.attr = rev(years))
+```
+
+
+
+```{r}
+query = paste("SELECT * FROM huc12_blds WHERE year_built >= '1970'")
+
+all_bf_gdf <- st_read(con,query = query)
+```
+
+```{r, fig.width=12, fig.height= 9, fig.align='center'}
+#head(all_bf_gdf)
+all_bf_gdf %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    facet_wrap(year_built~., ncol = 10) +
+    geom_sf(aes(fill = total_building_sq_km)) +
+    scale_fill_viridis_c(name="Total Building Area (Sq Km)") + 
+    theme_map() +
+    labs( title = "Total Building Area per HUC12",
+       subtitle = "1970 - 2014")
+```
+
+```{r total_count_bld, fig.width=12, fig.height= 9, fig.align='center'}
+all_bf_gdf %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    facet_wrap(year_built~., ncol = 10) +
+    geom_sf(aes(fill = total_buildings)) +
+    scale_fill_viridis_c(name="Total Buildings") + 
+    theme_map() +
+    labs( title = "Total Buildings per HUC12",
+       subtitle = "1970 - 2014")
+  
+```
+
+```{r total_count, fig.width=12, fig.height= 9, fig.align='center'}
+all_bf_gdf %>%
+  mutate(year_date = as.Date(as.character(year_built), format = "%Y")) %<>%
+  ggplot() +
+  geom_point(size=2,aes(x=year_date, y=total_buildings, colour=dwq_basin))
+```
+
+
+
+```{r}
+library(GGally)
+#all_bf_gdf %>%
+#  select(total_buildings, new_buildings, total_building_sq_km, total_heated_sq_km) %>%
+#  ggpairs(aes(colour = year_built, alpha = 0.4))
+  
+```
