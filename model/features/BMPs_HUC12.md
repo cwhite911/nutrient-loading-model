@@ -15,74 +15,6 @@ con <- dbConnect(PostgreSQL(), dbname = "WRRI", user = "postgres",
 
 ### Test Connection
 
-``` r
-dbListTables(con) 
-```
-
-    ##  [1] "geocode_settings"                       
-    ##  [2] "spatial_ref_sys"                        
-    ##  [3] "topology"                               
-    ##  [4] "layer"                                  
-    ##  [5] "geocode_settings_default"               
-    ##  [6] "direction_lookup"                       
-    ##  [7] "secondary_unit_lookup"                  
-    ##  [8] "state_lookup"                           
-    ##  [9] "street_type_lookup"                     
-    ## [10] "place_lookup"                           
-    ## [11] "county_lookup"                          
-    ## [12] "countysub_lookup"                       
-    ## [13] "zip_lookup_all"                         
-    ## [14] "zip_lookup_base"                        
-    ## [15] "zip_lookup"                             
-    ## [16] "county"                                 
-    ## [17] "state"                                  
-    ## [18] "place"                                  
-    ## [19] "zip_state"                              
-    ## [20] "zip_state_loc"                          
-    ## [21] "cousub"                                 
-    ## [22] "edges"                                  
-    ## [23] "addrfeat"                               
-    ## [24] "faces"                                  
-    ## [25] "featnames"                              
-    ## [26] "addr"                                   
-    ## [27] "zcta5"                                  
-    ## [28] "loader_platform"                        
-    ## [29] "loader_variables"                       
-    ## [30] "loader_lookuptables"                    
-    ## [31] "tract"                                  
-    ## [32] "tabblock"                               
-    ## [33] "wbd_huc_10_12"                          
-    ## [34] "bg"                                     
-    ## [35] "pagc_gaz"                               
-    ## [36] "pagc_lex"                               
-    ## [37] "pagc_rules"                             
-    ## [38] "building_footprints"                    
-    ## [39] "counties"                               
-    ## [40] "falls_lake"                             
-    ## [41] "falls_lake_watershed"                   
-    ## [42] "flowlines"                              
-    ## [43] "jordan_lake_watershed"                  
-    ## [44] "nhd_plus_flowlines_piedmont"            
-    ## [45] "jordan_lake"                            
-    ## [46] "load_monitoring_sites"                  
-    ## [47] "nc_stromwater_programs"                 
-    ## [48] "public_municipal_stormwater_systems"    
-    ## [49] "reservoirs"                             
-    ## [50] "sw_culverts_cary"                       
-    ## [51] "sw_culverts_greensboro"                 
-    ## [52] "sw_culverts_raleigh"                    
-    ## [53] "sw_inlets_cary"                         
-    ## [54] "sw_inlets_greensboro"                   
-    ## [55] "sw_inlets_raleigh"                      
-    ## [56] "sw_pipes_cary"                          
-    ## [57] "sw_pipes_greensboro"                    
-    ## [58] "sw_pipes_raleigh"                       
-    ## [59] "sw_waterbodies_bmp_scm_greensboro"      
-    ## [60] "type_a_future_public_sewer_systems_2004"
-    ## [61] "urban_areas"                            
-    ## [62] "ww_tn_point_sources"                    
-    ## [63] "ww_tp_point_sources"
-
 **List all tables, and identify geometry column and type for each
 table**
 
@@ -94,41 +26,43 @@ table_info <- get_postgis_query(con,
   AND f_geometry_column = 'geom'"
 )
 
-table_info
+
+knitr::kable(head(table_info, 50))
 ```
 
-    ##                                      table geometry_column srid            type
-    ## 1                            wbd_huc_10_12            geom 6542    MULTIPOLYGON
-    ## 2                      building_footprints            geom 6542    MULTIPOLYGON
-    ## 3                                 counties            geom 6542    MULTIPOLYGON
-    ## 4                               falls_lake            geom 6542    MULTIPOLYGON
-    ## 5                     falls_lake_watershed            geom 6542    MULTIPOLYGON
-    ## 6                                flowlines            geom 6542 MULTILINESTRING
-    ## 7                    jordan_lake_watershed            geom 6542    MULTIPOLYGON
-    ## 8              nhd_plus_flowlines_piedmont            geom 6542 MULTILINESTRING
-    ## 9                       stream_buffers_30m            geom    0        GEOMETRY
-    ## 10                              huc12_blds            geom 6542    MULTIPOLYGON
-    ## 11                             jordan_lake            geom 6542    MULTIPOLYGON
-    ## 12                   load_monitoring_sites            geom 6542           POINT
-    ## 13                  nc_stromwater_programs            geom 6542    MULTIPOLYGON
-    ## 14     public_municipal_stormwater_systems            geom 6542    MULTIPOLYGON
-    ## 15                              reservoirs            geom 6542    MULTIPOLYGON
-    ## 16                   huc12_blds_in_strbuff            geom 6542    MULTIPOLYGON
-    ## 17                        sw_culverts_cary            geom 6542      LINESTRING
-    ## 18                  sw_culverts_greensboro            geom 6542      LINESTRING
-    ## 19                     sw_culverts_raleigh            geom 6542      LINESTRING
-    ## 20                          sw_inlets_cary            geom 6542           POINT
-    ## 21                    sw_inlets_greensboro            geom 6542           POINT
-    ## 22                       sw_inlets_raleigh            geom 6542           POINT
-    ## 23                           sw_pipes_cary            geom 6542      LINESTRING
-    ## 24                     sw_pipes_greensboro            geom 6542      LINESTRING
-    ## 25                        sw_pipes_raleigh            geom 6542      LINESTRING
-    ## 26       sw_waterbodies_bmp_scm_greensboro            geom 6542    MULTIPOLYGON
-    ## 27 type_a_future_public_sewer_systems_2004            geom 6542    MULTIPOLYGON
-    ## 28                             urban_areas            geom 6542    MULTIPOLYGON
-    ## 29                     ww_tn_point_sources            geom 6542           POINT
-    ## 30                     ww_tp_point_sources            geom 6542           POINT
-    ## 31                        huc12_study_area            geom 6542    MULTIPOLYGON
+| table                                         | geometry\_column |  srid| type            |
+|:----------------------------------------------|:-----------------|-----:|:----------------|
+| wbd\_huc\_10\_12                              | geom             |  6542| MULTIPOLYGON    |
+| building\_footprints                          | geom             |  6542| MULTIPOLYGON    |
+| counties                                      | geom             |  6542| MULTIPOLYGON    |
+| falls\_lake                                   | geom             |  6542| MULTIPOLYGON    |
+| falls\_lake\_watershed                        | geom             |  6542| MULTIPOLYGON    |
+| flowlines                                     | geom             |  6542| MULTILINESTRING |
+| jordan\_lake\_watershed                       | geom             |  6542| MULTIPOLYGON    |
+| huc12\_study\_area                            | geom             |  6542| MULTIPOLYGON    |
+| huc12\_blds                                   | geom             |  6542| MULTIPOLYGON    |
+| nhd\_plus\_flowlines\_piedmont                | geom             |  6542| MULTILINESTRING |
+| stream\_buffers\_30m                          | geom             |     0| GEOMETRY        |
+| huc12\_blds\_in\_strbuff                      | geom             |  6542| MULTIPOLYGON    |
+| jordan\_lake                                  | geom             |  6542| MULTIPOLYGON    |
+| load\_monitoring\_sites                       | geom             |  6542| POINT           |
+| nc\_stromwater\_programs                      | geom             |  6542| MULTIPOLYGON    |
+| public\_municipal\_stormwater\_systems        | geom             |  6542| MULTIPOLYGON    |
+| reservoirs                                    | geom             |  6542| MULTIPOLYGON    |
+| sw\_culverts\_cary                            | geom             |  6542| LINESTRING      |
+| sw\_culverts\_greensboro                      | geom             |  6542| LINESTRING      |
+| sw\_culverts\_raleigh                         | geom             |  6542| LINESTRING      |
+| sw\_inlets\_cary                              | geom             |  6542| POINT           |
+| sw\_inlets\_greensboro                        | geom             |  6542| POINT           |
+| sw\_inlets\_raleigh                           | geom             |  6542| POINT           |
+| sw\_pipes\_cary                               | geom             |  6542| LINESTRING      |
+| sw\_pipes\_greensboro                         | geom             |  6542| LINESTRING      |
+| sw\_pipes\_raleigh                            | geom             |  6542| LINESTRING      |
+| sw\_waterbodies\_bmp\_scm\_greensboro         | geom             |  6542| MULTIPOLYGON    |
+| type\_a\_future\_public\_sewer\_systems\_2004 | geom             |  6542| MULTIPOLYGON    |
+| urban\_areas                                  | geom             |  6542| MULTIPOLYGON    |
+| ww\_tn\_point\_sources                        | geom             |  6542| POINT           |
+| ww\_tp\_point\_sources                        | geom             |  6542| POINT           |
 
 ``` r
 table_count <- get_postgis_query(con, 
@@ -223,14 +157,77 @@ hu12_building_footprints_30m_stream_buff_df <- get_postgis_query(con,
     "SELECT * FROM huc12_blds_in_strbuff WHERE hu_12_name = 'Back Creek' AND year_built >= '1970'",
 geom_name = "geom")
 
-head(hu12_building_footprints_30m_stream_buff_df)
+
+knitr::kable(head(hu12_building_footprints_30m_stream_buff_df@data,25))
 ```
 
-
+| huc\_12      | hu\_12\_name | huc\_10    | hu\_10\_name       | dwq\_basin | huc\_8   |   dig\_8| states | meta\_id |  fid| year\_built |  new\_buildings|  total\_buildings|  total\_building\_sq\_km|  total\_heated\_sq\_km|
+|:-------------|:-------------|:-----------|:-------------------|:-----------|:---------|--------:|:-------|:---------|----:|:------------|---------------:|-----------------:|------------------------:|----------------------:|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1973        |               1|                13|                0.0016391|              0.0012316|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1974        |              24|                37|                0.0035933|              0.0028443|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1975        |               1|                38|                0.0037580|              0.0030485|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1976        |               6|                44|                0.0048465|              0.0037451|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1977        |               4|                48|                0.0056653|              0.0045114|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1978        |               2|                50|                0.0061424|              0.0049654|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1980        |               6|                56|                0.0067913|              0.0054626|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1983        |               1|                57|                0.0069068|              0.0055568|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1984        |               3|                60|                0.0072733|              0.0059024|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1985        |               3|                63|                0.0077402|              0.0064102|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1986        |               5|                68|                0.0088879|              0.0075884|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1987        |               1|                69|                0.0091444|              0.0078077|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1991        |               1|                70|                0.0095407|              0.0080931|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1992        |               2|                72|                0.0098915|              0.0083940|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1993        |               1|                73|                0.0100065|              0.0084980|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1994        |               2|                75|                0.0104665|              0.0088577|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1995        |               3|                78|                0.0113854|              0.0102345|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1996        |               1|                79|                0.0115479|              0.0103658|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1997        |               5|                84|                0.0132976|              0.0117388|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1998        |               1|                85|                0.0135962|              0.0120069|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 1999        |               1|                86|                0.0138817|              0.0121932|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 2000        |               1|                87|                0.0140018|              0.0122973|
+| 030300020305 | Back Creek   | 0303000203 | Big Alamance Creek | Cape Fear  | 03030002 |  3030002| NC     | NC01     |  837| 2003        |               4|                91|                0.0148751|              0.0129894|
 
 ``` r
+hu12_building_footprints_df <- get_postgis_query(con, 
+    "SELECT * FROM huc12_blds WHERE hu_12_name = 'Back Creek' AND year_built >= '1970' AND dwq_basin = 'Cape Fear'",
+geom_name = "geom")
+
+knitr::kable(head(hu12_building_footprints_df@data,25))
+```
+
+| huc\_12      | hu\_12\_name | year\_built | hu\_10\_name       | dwq\_basin |  new\_buildings|  total\_buildings|  total\_building\_sq\_km|  total\_heated\_sq\_km|
+|:-------------|:-------------|:------------|:-------------------|:-----------|---------------:|-----------------:|------------------------:|----------------------:|
+| 030300020305 | Back Creek   | 1970        | Big Alamance Creek | Cape Fear  |              35|              1402|                0.2673323|              0.2489142|
+| 030300020305 | Back Creek   | 1971        | Big Alamance Creek | Cape Fear  |              42|              1444|                0.2752382|              0.2553390|
+| 030300020305 | Back Creek   | 1972        | Big Alamance Creek | Cape Fear  |              60|              1504|                0.2919590|              0.2726737|
+| 030300020305 | Back Creek   | 1973        | Big Alamance Creek | Cape Fear  |              60|              1564|                0.3078937|              0.2888187|
+| 030300020305 | Back Creek   | 1974        | Big Alamance Creek | Cape Fear  |             137|              1701|                0.3277582|              0.3078580|
+| 030300020305 | Back Creek   | 1975        | Big Alamance Creek | Cape Fear  |              78|              1779|                0.3413022|              0.3192965|
+| 030300020305 | Back Creek   | 1976        | Big Alamance Creek | Cape Fear  |              48|              1827|                0.3500342|              0.3261627|
+| 030300020305 | Back Creek   | 1977        | Big Alamance Creek | Cape Fear  |              58|              1885|                0.3629237|              0.3367470|
+| 030300020305 | Back Creek   | 1978        | Big Alamance Creek | Cape Fear  |              41|              1926|                0.3743132|              0.3466809|
+| 030300020305 | Back Creek   | 1979        | Big Alamance Creek | Cape Fear  |              50|              1976|                0.3857608|              0.3555648|
+| 030300020305 | Back Creek   | 1980        | Big Alamance Creek | Cape Fear  |              94|              2070|                0.4014294|              0.3734116|
+| 030300020305 | Back Creek   | 1981        | Big Alamance Creek | Cape Fear  |              36|              2106|                0.4083906|              0.3798164|
+| 030300020305 | Back Creek   | 1982        | Big Alamance Creek | Cape Fear  |              21|              2127|                0.4129652|              0.3851144|
+| 030300020305 | Back Creek   | 1983        | Big Alamance Creek | Cape Fear  |              38|              2165|                0.4198447|              0.3904139|
+| 030300020305 | Back Creek   | 1984        | Big Alamance Creek | Cape Fear  |              56|              2221|                0.4316939|              0.4027277|
+| 030300020305 | Back Creek   | 1985        | Big Alamance Creek | Cape Fear  |              42|              2263|                0.4395446|              0.4102061|
+| 030300020305 | Back Creek   | 1986        | Big Alamance Creek | Cape Fear  |              57|              2320|                0.4511091|              0.4209417|
+| 030300020305 | Back Creek   | 1987        | Big Alamance Creek | Cape Fear  |              84|              2404|                0.4812036|              0.4488603|
+| 030300020305 | Back Creek   | 1988        | Big Alamance Creek | Cape Fear  |             118|              2522|                0.5082438|              0.4736347|
+| 030300020305 | Back Creek   | 1989        | Big Alamance Creek | Cape Fear  |              71|              2593|                0.5327266|              0.4951889|
+| 030300020305 | Back Creek   | 1990        | Big Alamance Creek | Cape Fear  |              56|              2649|                0.5508810|              0.5143029|
+| 030300020305 | Back Creek   | 1991        | Big Alamance Creek | Cape Fear  |              63|              2712|                0.5671361|              0.5352441|
+| 030300020305 | Back Creek   | 1992        | Big Alamance Creek | Cape Fear  |              71|              2783|                0.5869064|              0.5579989|
+| 030300020305 | Back Creek   | 1993        | Big Alamance Creek | Cape Fear  |              51|              2834|                0.6098173|              0.5989042|
+| 030300020305 | Back Creek   | 1994        | Big Alamance Creek | Cape Fear  |             171|              3005|                0.6539141|              0.6544363|
+
+``` r
+colors <- c("All Building Footprints" = "orange", "Building Footprints inside 30m Stream Buffer" = "purple")
 hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
 hu12_building_footprints_30m_stream_buff_df@data$year_built <- as.Date(as.character(hu12_building_footprints_30m_stream_buff_df@data$year_built), format = "%Y")
+
 ggplot() + 
   geom_line(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "purple") +
   geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "purple") +
@@ -242,16 +239,17 @@ ggplot() +
        title = "Total Buildings in the Back Creek Subwatershed (HUC12)",
        subtitle = "Cape Fear River Basin (1970 - 2014)",
        x = "Year Built",
-       y = "Total Buildings") + theme(legend.position = "bottom")
+       y = "Total Buildings")  +
+  scale_color_manual(values = colors) + theme(legend.position = "bottom")
 ```
 
-![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-8-1.png)
+![](BMPs_HUC12_files/figure-markdown_github/plot_total_buildings-1.png)
 
 ``` r
 hu12_building_footprints_df@data$year_built <- as.Date(as.character(hu12_building_footprints_df@data$year_built), format = "%Y")
 hu12_building_footprints_30m_stream_buff_df@data$year_built <- as.Date(as.character(hu12_building_footprints_30m_stream_buff_df@data$year_built), format = "%Y")
-ggplot() + 
-  geom_line(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "purple") +
+ggplot(hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings)) + 
+  geom_line(color = "purple") +
   geom_point(data = hu12_building_footprints_30m_stream_buff_df@data, aes(x = year_built, y = total_buildings), color = "purple") +
   labs(color="Buiding Inclusion",
        title = "Total Buildings inside 30m Stream Buffer in the Back Creek (HUC12)",
@@ -260,7 +258,7 @@ ggplot() +
        y = "Total Buildings") + theme(legend.position = "bottom")
 ```
 
-![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-9-1.png)
+![](BMPs_HUC12_files/figure-markdown_github/plot_total_buildings_in_sb-1.png)
 
 ``` r
 ggplot() + 
@@ -277,24 +275,12 @@ ggplot() +
        y = "New Buildings") + theme(legend.position = "bottom")
 ```
 
-![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-10-1.png)
+![](BMPs_HUC12_files/figure-markdown_github/plot_new_buildings-1.png)
 
 ``` r
 all_hu12_building_footprints_df <- get_postgis_query(con, 
     "SELECT huc_12, hu_12_name, year_built, total_buildings FROM huc12_blds as h12 WHERE  year_built >= '1970' ORDER BY hu_12_name, year_built")
 ```
-
-``` r
-head(all_hu12_building_footprints_df)
-```
-
-    ##         huc_12 hu_12_name year_built total_buildings
-    ## 1 030300020305 Back Creek       1970            1402
-    ## 2 030300020305 Back Creek       1971            1444
-    ## 3 030300020305 Back Creek       1972            1504
-    ## 4 030300020305 Back Creek       1973            1564
-    ## 5 030300020305 Back Creek       1974            1701
-    ## 6 030300020305 Back Creek       1975            1779
 
 ``` r
 #fill(data, ..., .direction = c("down", "up", "downup", "updown"))
@@ -322,7 +308,7 @@ map_titles <- paste("year_", years, sep="")
 spplot(h12_buildings_merged, rev(map_titles), names.attr = rev(years))
 ```
 
-![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-16-1.png)
+![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-2-1.png)
 
 ``` r
 years <- c(1970,1975, 1980,1985, 1990,1995, 2000,2005, 2010,2014)
@@ -330,49 +316,36 @@ map_titles <- paste("year_", years, sep="")
 plot(counties_df,  border=c('black'))
 ```
 
-![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-17-1.png)
+![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-3-1.png)
 
 ``` r
 spplot(h12_buildings_merged, rev(map_titles), names.attr = rev(years), add=T)
 ```
 
-![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-17-2.png)
+![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-3-2.png)
+
+Culverts
+--------
 
 ``` r
-#yrs <- 1970:2014 #unique(all_hu12_building_footprints_df$year_built) #
-#time <- as.POSIXct(paste(yrs, "-12-07", sep=""), tz = "GMT")
-#stfdf = STFDF(all_hu12_building_footprints_geom_df, time, all_hu12_building_footprints_df)
+huc12_culverts_df <- get_postgis_query(con, "SELECT sa.huc_12,sa.hu_12_name,sa.hu_10_name, 
+    (
+        sum(COALESCE(ST_Length(gc.geom),0) + 
+            COALESCE(ST_Length(cc.geom),0) +
+            COALESCE(ST_Length(rc.geom),0)
+           )
+    ) AS total_length_m,
+    sa.geom
+FROM huc12_study_area as sa
+LEFT JOIN sw_culverts_greensboro as gc ON ST_CONTAINS(sa.geom, gc.geom)
+LEFT JOIN sw_culverts_cary as cc ON ST_CONTAINS(sa.geom, cc.geom)
+LEFT JOIN sw_culverts_raleigh as rc ON ST_CONTAINS(sa.geom, rc.geom)
+
+GROUP BY sa.huc_12, sa.hu_12_name,sa.hu_10_name,  sa.geom", geom_name="geom")
 ```
 
 ``` r
-#unique(hu12_building_footprints_df@data$year_built)
-#library(lattice)
-#library(spacetime)
-#library(xts)
-
-#all_hu12_building_footprints_df$year <- as.Date(as.character(all_hu12_building_footprints_df$year_built), format = "%Y")
-#yrs <- 1970:2014 #unique(all_hu12_building_footprints_df$year_built) #
-#time <- as.POSIXct(paste(yrs, "-12-07", sep=""), tz = "GMT")
-#time <- as.POSIXct(yrs, tz = "GMT")
-
-#nrow(object@data) == length(object@sp) * nrow(object@time)
-
-
-#length(all_hu12_building_footprints_geom_df@polygons)
-#print("time")
-#length(time)
-
- 
-#print("data")
-#nrow(all_hu12_building_footprints_df)
-#str(time)
-#all_hu12_building_footprints_df.st <- STFDF(all_hu12_building_footprints_geom_df, time,data=all_hu12_building_footprints_df)
-#hu12_building_footprints_df.st[,,"total_buildings"]
-#stplot(all_hu12_building_footprints_df.st,yrs,col.regions = brewer.pal(9, "viridis"))
-
-
-#R> # deselect District of Columbia, polygon 8, which is not present in Produc:
-#R> Produc.st = STFDF(states[-8], time, Produc[order(Produc[2], Produc[1]),])
-#R> library(RColorBrewer)
-#R> stplot(Produc.st[,,"unemp"], yrs, col.regions = brewer.pal(9, "YlOrRd"),cuts=9)
+spplot(huc12_culverts_df,"total_length_m", main="Culvert Length (m)")
 ```
+
+![](BMPs_HUC12_files/figure-markdown_github/unnamed-chunk-5-1.png)
