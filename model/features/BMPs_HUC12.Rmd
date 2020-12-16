@@ -230,16 +230,15 @@ ggplot() +
 library(spatstat)
 #library(rgdal)
 
-huc12_culverts_df <- get_postgis_query(con, 
-    "SELECT * FROM sw_culverts_greensboro",
-geom_name = "geom")
+#huc12_culverts_df <- get_postgis_query(con, 
+#geom_name = "geom")
 #Convert roads spatial lines data frame to psp object
 #psp_culvert_ms <- st_cast(huc12_culverts_df,"MULTILINESTRING")
 #psp_culvert_ls <- st_cast(psp_culvert_ms,"LINESTRING")
 #class(psp_culvert_ls)
-psp_culvert <- as.psp(huc12_culverts_df)
+#psp_culvert <- as.psp(huc12_culverts_df)
 #Apply kernel density, however this is where I am unsure of the arguments
-culvert_density <- spatstat::density.psp(psp_culvert, sigma = 0.01, eps = 500) 
+#culvert_density <- spatstat::density.psp(psp_culvert, sigma = 0.01, eps = 500) 
 
 ```
 

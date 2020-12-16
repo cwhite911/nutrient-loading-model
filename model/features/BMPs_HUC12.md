@@ -63,13 +63,16 @@ GROUP BY featuretyp, bmptype")
 
 ggplot(greensboro_bmp_area_df, aes(y=bmptype, x=featuretyp, fill= area)) + 
   geom_tile() +
-  scale_fill_distiller(palette = "YlGnBu") +
+  scale_fill_distiller(palette = "YlGnBu", trans='log2', direction=1) +
   labs(
        title = "BMP & SCM Type Area (km^2)",
        subtitle = "City of Greensboro",
        x = "BMP/SCM Type",
-       y = "Feature Type")
+       y = "Feature Type") +
+  geom_text(aes(label=sprintf("%0.4f", area)),color="white", face="bold", size=rel(3.5)) 
 ```
+
+    ## Warning: Ignoring unknown parameters: face
 
 ![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->
 
@@ -83,13 +86,16 @@ GROUP BY featuretyp, bmptype")
 
 ggplot(greensboro_bmp_count_df, aes(y=bmptype, x=featuretyp, fill= count)) + 
   geom_tile() +
-  scale_fill_distiller(palette = "YlGnBu") +
+  scale_fill_distiller(palette = "YlGnBu", trans='log2', direction=1) +
   labs(color="Buiding Inclusion",
        title = "BMP & SCM Type Count",
        subtitle = "City of Greensboro",
        x = "BMP/SCM Type",
-       y = "Feature Type")
+       y = "Feature Type") +
+  geom_text(aes(label= count),color="white", face="bold", size=rel(3.5))
 ```
+
+    ## Warning: Ignoring unknown parameters: face
 
 ![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
@@ -109,8 +115,11 @@ greensboro_bmp_area_gdf %>%
 ggplot() +
     facet_grid(.~featuretyp) +
     geom_sf(aes(fill = area)) +
-    scale_fill_viridis_c(option = "plasma")
+    scale_fill_viridis_c(option = "YlGnBu",trans='log2')
 ```
+
+    ## Warning in viridisLite::viridis(n, alpha, begin, end, direction, option): Option
+    ## 'YlGnBu' does not exist. Defaulting to 'viridis'.
 
 ![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
@@ -120,7 +129,7 @@ greensboro_bmp_area_gdf %>%
 ggplot() +
     facet_grid(featuretyp~bmptype) +
     geom_sf(aes(fill = area)) +
-    scale_fill_viridis_c()
+    scale_fill_viridis_c(trans='log2')
 ```
 
 ![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
@@ -131,13 +140,50 @@ class(greensboro_bmp_area_gdf)
 
     ## [1] "sf"         "data.frame"
 
+## BMP Inlets
+
+``` r
+query = paste('SELECT 
+    inlet.assetid as inlet_assetid,
+    bmp.objectid,
+    bmp.installdat,
+    bmp.bmptype,
+    bmp.featuretyp,
+    bmp.outletdiam,
+    inlet.geom
+FROM sw_inlets_greensboro as inlet, sw_waterbodies_bmp_scm_greensboro as bmp
+WHERE ST_Intersects(inlet.geom, bmp.geom)')
+
+bmp_inlets_gdf <- st_read(con,query = query)
+
+query = paste('SELECT 
+    bmp.*
+FROM sw_inlets_greensboro as inlet, sw_waterbodies_bmp_scm_greensboro as bmp
+WHERE ST_Intersects(inlet.geom, bmp.geom)')
+
+bmps_gdf <- st_read(con,query = query)
+```
+
+``` r
+bmp_inlets_gdf %>%
+ggplot() +
+    geom_sf() +
+    geom_sf(data=bmps_gdf, aes(fill=bmptype))
+```
+
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+``` r
+    #scale_fill_viridis_c(option = "plasma")
+```
+
 ## Culverts
 
 Calculate the total length of
 culverts
 
 ``` r
-huc12_culverts_df <- get_postgis_query(con, "SELECT sa.huc_12,sa.hu_12_name,sa.hu_10_name, 
+huc12_culverts_df <- st_read(con, query=paste("SELECT sa.huc_12,sa.hu_12_name,sa.hu_10_name, 
     (
         sum(COALESCE(ST_Length(gc.geom),0) + 
             COALESCE(ST_Length(cc.geom),0) +
@@ -150,11 +196,74 @@ LEFT JOIN sw_culverts_greensboro as gc ON ST_CONTAINS(sa.geom, gc.geom)
 LEFT JOIN sw_culverts_cary as cc ON ST_CONTAINS(sa.geom, cc.geom)
 LEFT JOIN sw_culverts_raleigh as rc ON ST_CONTAINS(sa.geom, rc.geom)
 
-GROUP BY sa.huc_12, sa.hu_12_name,sa.hu_10_name,  sa.geom", geom_name="geom")
+GROUP BY sa.huc_12, sa.hu_12_name,sa.hu_10_name,  sa.geom"))
 ```
 
 ``` r
-spplot(huc12_culverts_df,"total_length_m", main="Culvert Length (m)")
+#spplot(huc12_culverts_df,"total_length_m", main="Culvert Length (m)")
+
+huc12_culverts_df %>%
+ggplot() +
+    #facet_grid(.~featuretyp) +
+    geom_sf(aes(fill = total_length_m)) +
+    scale_fill_viridis_c(option = "YlGnBu",trans='log2') +
+    labs(color="Length (m)",
+       title = "Culvert Length (m)") 
 ```
 
-![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+    ## Warning in viridisLite::viridis(n, alpha, begin, end, direction, option): Option
+    ## 'YlGnBu' does not exist. Defaulting to 'viridis'.
+
+    ## Warning: Transformation introduced infinite values in discrete y-axis
+
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+``` r
+#Import libraries
+library(spatstat)
+```
+
+    ## Loading required package: spatstat.data
+
+    ## Loading required package: nlme
+
+    ## 
+    ## Attaching package: 'nlme'
+
+    ## The following object is masked from 'package:dplyr':
+    ## 
+    ##     collapse
+
+    ## Loading required package: rpart
+
+    ## 
+    ## spatstat 1.63-3       (nickname: 'Wet paint') 
+    ## For an introduction to spatstat, type 'beginner'
+
+    ## 
+    ## Note: spatstat version 1.63-3 is out of date by more than 9 months; we recommend upgrading to the latest version.
+
+    ## 
+    ## Attaching package: 'spatstat'
+
+    ## The following objects are masked from 'package:ggpubr':
+    ## 
+    ##     border, rotate
+
+    ## The following object is masked from 'package:MASS':
+    ## 
+    ##     area
+
+``` r
+#library(rgdal)
+
+#huc12_culverts_df <- get_postgis_query(con, 
+#geom_name = "geom")
+#Convert roads spatial lines data frame to psp object
+#psp_culvert_ms <- st_cast(huc12_culverts_df,"MULTILINESTRING")
+#psp_culvert_ls <- st_cast(psp_culvert_ms,"LINESTRING")
+#class(psp_culvert_ls)
+#psp_culvert <- as.psp(huc12_culverts_df)
+#Apply kernel density, however this is where I am unsure of the arguments
+#culvert_density <- spatstat::density.psp(psp_culvert, sigma = 0.01, eps = 500) 
+```
