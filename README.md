@@ -51,3 +51,21 @@ docker cp nutrient-loading-model_postgis_1:/etc/postgresql/wrri_pg_bak .
 ```
 
 Finally, update the backup in the shared Google Drive to share with others.
+
+
+### Setup PGAdmin4
+
+1. Install [PGAdmin4](https://www.pgadmin.org/download/) if you do not already have it.
+
+2. Create a new server using by right clicking **Server -> Create -> Server** .
+![](docs/images/pgadmin_create_server.png)
+
+3. In the create server panel's General tab set the server name to `WRRI_Docker`.
+![](docs/images/pgadmin_set_server_name.png)
+
+4. Select the Connection tab from the create server panel. For the **Host name/address** enter `localhost`, set **Port** to `5430`, set the **Maintenance database** to `postgres`, and set the **username** to `postgres`, leave the password empty.
+![](docs/images/pgadmin_set_server_connection.png)
+
+5. Click `save` at the bottom right of the **Create - Server** panel.
+
+You are now connected to the database and will see your saved connection on the left panel of PGAdmin with the label `WRRI_Docker`.

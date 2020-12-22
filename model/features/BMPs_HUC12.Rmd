@@ -154,8 +154,59 @@ ggplot() +
 
 
 ```{r}
-class(greensboro_bmp_area_gdf)
+query = paste('SELECT  
+	bmp.assetid,
+	bmp.featuretyp,
+	bmp.bmptype,
+	bmp.installdat,
+	(SUM(ST_AREA(bmp.geom)) / 1e6) as area,
+	cast(avg(cast(bf.year_built as integer)) as integer) as "year",
+	bmp.geom
+FROM sw_waterbodies_bmp_scm_greensboro as bmp
+JOIN building_footprints as bf on ST_INTERSECTS(ST_Buffer(bmp.geom, 500), bf.geom)
+GROUP BY 
+		bmp.assetid,
+		bmp.featuretyp,
+		bmp.bmptype,
+		bmp.installdat, bmp.geom
+ORDER BY installdat'
+)
 
+greensboro_bmp_year_area_gdf <- st_read(con,query = query)
+
+```
+
+
+
+```{r}
+head(greensboro_bmp_year_area_gdf, 5)
+ggplot(greensboro_bmp_year_area_gdf, aes(y=area, x=year, group= bmptype)) + 
+  geom_line() +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(color="Buiding Inclusion",
+       title = "BMP & SCM Type Count by Year",
+       subtitle = "City of Greensboro",
+       x = "BMP/SCM Type",
+       y = "Feature Type") #+
+  #geom_text(aes(label= area),color="white", face="bold", size=rel(3.5))
+```
+
+```{r, fig.width=12, fig.height= 9, fig.align='center'}
+#head(all_bf_gdf)
+counties_sf <- st_read(con, query= paste(
+    "SELECT countyname, geom 
+		FROM counties"))
+
+greensboro_bmp_year_area_gdf %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    facet_wrap(year~., ncol = 10) +
+    geom_sf(aes(fill = area)) +
+    scale_fill_viridis_c(name="Total BMP/SCM Area (Sq Km)") + 
+    theme_map() +
+    labs( title = "Total Building Area per HUC12",
+       subtitle = "1970 - 2014")
 ```
 
 ## BMP Inlets
