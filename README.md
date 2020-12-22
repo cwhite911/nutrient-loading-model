@@ -61,10 +61,13 @@ Finally, update the backup in the shared Google Drive to share with others.
 ![](docs/images/pgadmin_create_server.png)
 
 3. In the create server panel's General tab set the server name to `WRRI_Docker`.
-![](docs/images/pgadmin_set_server_name.png)
+
+<img src="docs/images/pgadmin_set_server_name.png" alt="drawing" width="200"/>
+
 
 4. Select the Connection tab from the create server panel. For the **Host name/address** enter `localhost`, set **Port** to `5430`, set the **Maintenance database** to `postgres`, and set the **username** to `postgres`, leave the password empty.
-![](docs/images/pgadmin_set_server_connection.png)
+
+<img src="docs/images/pgadmin_set_server_connection.png" alt="drawing" width="200"/>
 
 5. Click `save` at the bottom right of the **Create - Server** panel.
 
