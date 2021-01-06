@@ -135,10 +135,111 @@ ggplot() +
 ![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 ``` r
-class(greensboro_bmp_area_gdf)
+query = paste('SELECT  
+    bmp.assetid,
+    bmp.featuretyp,
+    bmp.bmptype,
+    bmp.installdat,
+    (SUM(ST_AREA(bmp.geom)) / 1e6) as area,
+    cast(avg(cast(bf.year_built as integer)) as integer) as "year",
+    sa.geom
+FROM sw_waterbodies_bmp_scm_greensboro as bmp
+JOIN building_footprints as bf on ST_INTERSECTS(ST_Buffer(bmp.geom, 500), bf.geom)
+JOIN huc12_study_area as sa on ST_INTERSECTS(bmp.geom, sa.geom)
+GROUP BY 
+        bmp.assetid,
+        bmp.featuretyp,
+        bmp.bmptype,
+        bmp.installdat, 
+        sa.geom
+ORDER BY installdat'
+)
+
+greensboro_bmp_year_area_gdf <- st_read(con,query = query)
 ```
 
-    ## [1] "sf"         "data.frame"
+``` r
+head(greensboro_bmp_year_area_gdf, 5)
+```
+
+    ## Simple feature collection with 5 features and 6 fields
+    ## geometry type:  MULTIPOLYGON
+    ## dimension:      XY
+    ## bbox:           xmin: 522271.4 ymin: 248417.2 xmax: 562886.8 ymax: 274726.2
+    ## CRS:            EPSG:6542
+    ##    assetid featuretyp       bmptype installdat        area year
+    ## 1 WTB10709        BMP Wet Waterbody 1999-01-01 0.007281379 1980
+    ## 2 WTB11067        BMP Dry Waterbody 1999-12-12 0.060120249 1992
+    ## 3 WTB11192        BMP Wet Waterbody 2005-12-01 0.027001278 1977
+    ## 4 WTB11193        BMP Wet Waterbody 2005-12-01 0.003592784 1975
+    ## 5 WTB10835        BMP       Biocell 2007-01-15 0.064898720 1991
+    ##                             geom
+    ## 1 MULTIPOLYGON (((550696.9 27...
+    ## 2 MULTIPOLYGON (((532062.9 27...
+    ## 3 MULTIPOLYGON (((562876.5 25...
+    ## 4 MULTIPOLYGON (((562876.5 25...
+    ## 5 MULTIPOLYGON (((532062.9 27...
+
+``` r
+ggplot(greensboro_bmp_year_area_gdf, aes(y=area, x=year, group= bmptype)) + 
+  geom_line() +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(color="Buiding Inclusion",
+       title = "BMP & SCM Type Count by Year",
+       subtitle = "City of Greensboro",
+       x = "BMP/SCM Type",
+       y = "Feature Type") #+
+```
+
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+``` r
+  #geom_text(aes(label= area),color="white", face="bold", size=rel(3.5))
+```
+
+``` r
+#head(all_bf_gdf)
+counties_sf <- st_read(con, query= paste(
+    "SELECT sa.geom 
+        FROM counties, huc12_study_area as sa WHERE countyname = 'Guilford' and ST_INTERSECTS(counties.geom, sa.geom)"))
+
+greensboro_bmp_year_area_gdf %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    facet_wrap(year~., ncol = 10) +
+    geom_sf(aes(fill = area)) +
+    scale_fill_viridis_c(name="Total BMP/SCM Area (Sq Km)",trans='log2') + 
+    theme_map() +
+    labs( title = "Total BMP/SCM Area (Sq Km) per HUC12",
+       subtitle = "1970 - 2014")
+```
+
+<img src="BMPs_HUC12_files/figure-gfm/unnamed-chunk-8-1.png" style="display: block; margin: auto;" />
+
+``` r
+head(greensboro_bmp_year_area_gdf)
+```
+
+    ## Simple feature collection with 6 features and 6 fields
+    ## geometry type:  MULTIPOLYGON
+    ## dimension:      XY
+    ## bbox:           xmin: 522271.4 ymin: 248417.2 xmax: 562886.8 ymax: 275682
+    ## CRS:            EPSG:6542
+    ##    assetid featuretyp       bmptype installdat        area year
+    ## 1 WTB10709        BMP Wet Waterbody 1999-01-01 0.007281379 1980
+    ## 2 WTB11067        BMP Dry Waterbody 1999-12-12 0.060120249 1992
+    ## 3 WTB11192        BMP Wet Waterbody 2005-12-01 0.027001278 1977
+    ## 4 WTB11193        BMP Wet Waterbody 2005-12-01 0.003592784 1975
+    ## 5 WTB10835        BMP       Biocell 2007-01-15 0.064898720 1991
+    ## 6 WTB11063        BMP       Biocell 2013-12-12 0.004832969 1969
+    ##                             geom
+    ## 1 MULTIPOLYGON (((550696.9 27...
+    ## 2 MULTIPOLYGON (((532062.9 27...
+    ## 3 MULTIPOLYGON (((562876.5 25...
+    ## 4 MULTIPOLYGON (((562876.5 25...
+    ## 5 MULTIPOLYGON (((532062.9 27...
+    ## 6 MULTIPOLYGON (((543730.6 27...
 
 ## BMP Inlets
 
@@ -171,7 +272,7 @@ ggplot() +
     geom_sf(data=bmps_gdf, aes(fill=bmptype))
 ```
 
-![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
 ``` r
     #scale_fill_viridis_c(option = "plasma")
@@ -216,7 +317,7 @@ ggplot() +
 
     ## Warning: Transformation introduced infinite values in discrete y-axis
 
-![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
 ``` r
 #Import libraries
@@ -241,7 +342,7 @@ library(spatstat)
     ## For an introduction to spatstat, type 'beginner'
 
     ## 
-    ## Note: spatstat version 1.63-3 is out of date by more than 9 months; we recommend upgrading to the latest version.
+    ## Note: spatstat version 1.63-3 is out of date by more than 10 months; we recommend upgrading to the latest version.
 
     ## 
     ## Attaching package: 'spatstat'

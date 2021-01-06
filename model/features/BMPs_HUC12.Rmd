@@ -161,14 +161,16 @@ query = paste('SELECT
 	bmp.installdat,
 	(SUM(ST_AREA(bmp.geom)) / 1e6) as area,
 	cast(avg(cast(bf.year_built as integer)) as integer) as "year",
-	bmp.geom
+	sa.geom
 FROM sw_waterbodies_bmp_scm_greensboro as bmp
 JOIN building_footprints as bf on ST_INTERSECTS(ST_Buffer(bmp.geom, 500), bf.geom)
+JOIN huc12_study_area as sa on ST_INTERSECTS(bmp.geom, sa.geom)
 GROUP BY 
 		bmp.assetid,
 		bmp.featuretyp,
 		bmp.bmptype,
-		bmp.installdat, bmp.geom
+		bmp.installdat, 
+		sa.geom
 ORDER BY installdat'
 )
 
@@ -194,8 +196,8 @@ ggplot(greensboro_bmp_year_area_gdf, aes(y=area, x=year, group= bmptype)) +
 ```{r, fig.width=12, fig.height= 9, fig.align='center'}
 #head(all_bf_gdf)
 counties_sf <- st_read(con, query= paste(
-    "SELECT countyname, geom 
-		FROM counties"))
+    "SELECT sa.geom 
+		FROM counties, huc12_study_area as sa WHERE countyname = 'Guilford' and ST_INTERSECTS(counties.geom, sa.geom)"))
 
 greensboro_bmp_year_area_gdf %>%
 ggplot() +
@@ -203,11 +205,17 @@ ggplot() +
     geom_sf(data=counties_sf) +
     facet_wrap(year~., ncol = 10) +
     geom_sf(aes(fill = area)) +
-    scale_fill_viridis_c(name="Total BMP/SCM Area (Sq Km)") + 
+    scale_fill_viridis_c(name="Total BMP/SCM Area (Sq Km)",trans='log2') + 
     theme_map() +
-    labs( title = "Total Building Area per HUC12",
+    labs( title = "Total BMP/SCM Area (Sq Km) per HUC12",
        subtitle = "1970 - 2014")
 ```
+
+
+```{r}
+head(greensboro_bmp_year_area_gdf)
+```
+
 
 ## BMP Inlets
 
@@ -278,7 +286,7 @@ ggplot() +
 
 ```{r}
 #Import libraries
-library(spatstat)
+#library(spatstat)
 #library(rgdal)
 
 #huc12_culverts_df <- get_postgis_query(con, 
