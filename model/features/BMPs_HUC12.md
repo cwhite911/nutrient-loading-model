@@ -140,8 +140,13 @@ query = paste('SELECT
     bmp.featuretyp,
     bmp.bmptype,
     bmp.installdat,
+    bmp.ownership,
+    bmp.lifecycle,
+    bmp.comments,
+    sa.hu_12_name,
     (SUM(ST_AREA(bmp.geom)) / 1e6) as area,
-    cast(avg(cast(bf.year_built as integer)) as integer) as "year",
+    cast(avg(cast(bf.year_built as integer)) as integer) as mean_year,
+    PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY cast(bf.year_built as integer)) as median_year,
     sa.geom
 FROM sw_waterbodies_bmp_scm_greensboro as bmp
 JOIN building_footprints as bf on ST_INTERSECTS(ST_Buffer(bmp.geom, 500), bf.geom)
@@ -150,9 +155,13 @@ GROUP BY
         bmp.assetid,
         bmp.featuretyp,
         bmp.bmptype,
-        bmp.installdat, 
+        bmp.installdat,
+        bmp.ownership,
+        bmp.lifecycle,
+        bmp.comments,
+        sa.hu_12_name,
         sa.geom
-ORDER BY installdat'
+ORDER BY median_year'
 )
 
 greensboro_bmp_year_area_gdf <- st_read(con,query = query)
@@ -162,26 +171,32 @@ greensboro_bmp_year_area_gdf <- st_read(con,query = query)
 head(greensboro_bmp_year_area_gdf, 5)
 ```
 
-    ## Simple feature collection with 5 features and 6 fields
+    ## Simple feature collection with 5 features and 11 fields
     ## geometry type:  MULTIPOLYGON
     ## dimension:      XY
-    ## bbox:           xmin: 522271.4 ymin: 248417.2 xmax: 562886.8 ymax: 274726.2
+    ## bbox:           xmin: 527416.3 ymin: 248828.4 xmax: 555505.1 ymax: 274726.2
     ## CRS:            EPSG:6542
-    ##    assetid featuretyp       bmptype installdat        area year
-    ## 1 WTB10709        BMP Wet Waterbody 1999-01-01 0.007281379 1980
-    ## 2 WTB11067        BMP Dry Waterbody 1999-12-12 0.060120249 1992
-    ## 3 WTB11192        BMP Wet Waterbody 2005-12-01 0.027001278 1977
-    ## 4 WTB11193        BMP Wet Waterbody 2005-12-01 0.003592784 1975
-    ## 5 WTB10835        BMP       Biocell 2007-01-15 0.064898720 1991
+    ##    assetid featuretyp            bmptype installdat ownership lifecycle
+    ## 1 WTB10727        BMP      Wet Waterbody       <NA>   Private    Active
+    ## 2 WTB10669        BMP      Wet Waterbody       <NA>   Private    Active
+    ## 3 WTB11612        SCM STW Curb Extension       <NA>      City    Active
+    ## 4 WTB11609        SCM          Tree Well       <NA>      City    Active
+    ## 5 WTB11607        SCM                 NA       <NA>      City    Active
+    ##         comments              hu_12_name        area mean_year median_year
+    ## 1             NA Smith Branch-Reedy Fork 0.002149269      1892        1892
+    ## 2             NA     South Buffalo Creek 0.040888033      1929        1917
+    ## 3 Curb extension     North Buffalo Creek 0.005637612      1933        1926
+    ## 4      Tree well     North Buffalo Creek 0.001871456      1933        1926
+    ## 5 Curb Extention     North Buffalo Creek 0.007690174      1933        1926
     ##                             geom
     ## 1 MULTIPOLYGON (((550696.9 27...
-    ## 2 MULTIPOLYGON (((532062.9 27...
-    ## 3 MULTIPOLYGON (((562876.5 25...
-    ## 4 MULTIPOLYGON (((562876.5 25...
-    ## 5 MULTIPOLYGON (((532062.9 27...
+    ## 2 MULTIPOLYGON (((550365.1 26...
+    ## 3 MULTIPOLYGON (((548485.2 26...
+    ## 4 MULTIPOLYGON (((548485.2 26...
+    ## 5 MULTIPOLYGON (((548485.2 26...
 
 ``` r
-ggplot(greensboro_bmp_year_area_gdf, aes(y=area, x=year, group= bmptype)) + 
+ggplot(greensboro_bmp_year_area_gdf, aes(x=median_year,y=area, group= bmptype)) + 
   geom_line() +
   #scale_fill_distiller(palette = "YlGnBu", direction=1) +
   labs(color="Buiding Inclusion",
@@ -198,7 +213,6 @@ ggplot(greensboro_bmp_year_area_gdf, aes(y=area, x=year, group= bmptype)) +
 ```
 
 ``` r
-#head(all_bf_gdf)
 counties_sf <- st_read(con, query= paste(
     "SELECT sa.geom 
         FROM counties, huc12_study_area as sa WHERE countyname = 'Guilford' and ST_INTERSECTS(counties.geom, sa.geom)"))
@@ -207,7 +221,7 @@ greensboro_bmp_year_area_gdf %>%
 ggplot() +
    # facet_grid(year_built~.,rows = vars(5)) +
     geom_sf(data=counties_sf) +
-    facet_wrap(year~., ncol = 10) +
+    facet_wrap(median_year~., ncol = 10) +
     geom_sf(aes(fill = area)) +
     scale_fill_viridis_c(name="Total BMP/SCM Area (Sq Km)",trans='log2') + 
     theme_map() +
@@ -215,31 +229,171 @@ ggplot() +
        subtitle = "1970 - 2014")
 ```
 
-<img src="BMPs_HUC12_files/figure-gfm/unnamed-chunk-8-1.png" style="display: block; margin: auto;" />
+<img src="BMPs_HUC12_files/figure-gfm/Total-BMP/SCM-Area-(SqKm)-per-HUC12-1.png" style="display: block; margin: auto;" />
 
 ``` r
-head(greensboro_bmp_year_area_gdf)
+#head(greensboro_bmp_year_area_gdf)
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year,y=count)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_line(aes(x=median_year,y=count)) + 
+  geom_point(aes(x=median_year,y=count)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  scale_y_continuous(trans='log10') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Cumulative Count Per Subwatershed",
+       subtitle = "",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM"
+      )
 ```
 
-    ## Simple feature collection with 6 features and 6 fields
-    ## geometry type:  MULTIPOLYGON
-    ## dimension:      XY
-    ## bbox:           xmin: 522271.4 ymin: 248417.2 xmax: 562886.8 ymax: 275682
-    ## CRS:            EPSG:6542
-    ##    assetid featuretyp       bmptype installdat        area year
-    ## 1 WTB10709        BMP Wet Waterbody 1999-01-01 0.007281379 1980
-    ## 2 WTB11067        BMP Dry Waterbody 1999-12-12 0.060120249 1992
-    ## 3 WTB11192        BMP Wet Waterbody 2005-12-01 0.027001278 1977
-    ## 4 WTB11193        BMP Wet Waterbody 2005-12-01 0.003592784 1975
-    ## 5 WTB10835        BMP       Biocell 2007-01-15 0.064898720 1991
-    ## 6 WTB11063        BMP       Biocell 2013-12-12 0.004832969 1969
-    ##                             geom
-    ## 1 MULTIPOLYGON (((550696.9 27...
-    ## 2 MULTIPOLYGON (((532062.9 27...
-    ## 3 MULTIPOLYGON (((562876.5 25...
-    ## 4 MULTIPOLYGON (((562876.5 25...
-    ## 5 MULTIPOLYGON (((532062.9 27...
-    ## 6 MULTIPOLYGON (((543730.6 27...
+<img src="BMPs_HUC12_files/figure-gfm/bmp_count_per_subwatershed_facet_plot-1.png" style="display: block; margin: auto;" />
+
+``` r
+#head(greensboro_bmp_year_area_gdf)
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year,y=count)) + 
+  facet_wrap(hu_12_name~ownership) +
+  geom_line(aes(x=median_year,y=count, group=bmptype, color=bmptype)) + 
+  geom_point(aes(x=median_year,y=count, group=bmptype, color=bmptype, cex=area)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  scale_y_continuous(trans='log10') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Cumulative Count Per Subwatershed",
+       subtitle = "by BMP/SCM Ownership and BMP/SCM Type",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM"
+      )
+```
+
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+
+<img src="BMPs_HUC12_files/figure-gfm/bmp_count_per_subwatershed_area_type_facet_plot-1.png" style="display: block; margin: auto;" />
+
+``` r
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year,y=count)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_line(aes(x=median_year,y=count, group=bmptype, color=bmptype)) + 
+  geom_point(aes(x=median_year,y=count, group=bmptype, color=bmptype, cex=cumarea)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Type Cumulative Count",
+       subtitle = "",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM in HUC12"
+      )
+```
+
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+``` r
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_line(aes(x=median_year,y=cumarea, group=ownership, color=ownership)) + 
+  geom_point(aes(x=median_year,y=cumarea, group=ownership, color=ownership)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  #scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Cumulative Area KM2",
+       subtitle = "by Ownership",
+       x = "Median Age of Surrounding Development",
+       y = "Cumulative Total Area of BMP/SCMs"
+      )
+```
+
+<img src="BMPs_HUC12_files/figure-gfm/bmp_count_per_subwatershed_area_facet_plot-1.png" style="display: block; margin: auto;" />
+
+``` r
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1960) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_area(aes(x=median_year,y=count, fill=bmptype)) + 
+  #geom_point(aes(x=median_year,y=count, group=bmptype, color=bmptype, cex=cumarea)) + 
+  #scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  #scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Type Cumulative Count",
+       subtitle = "by BMP/SCM Ownership",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM in HUC12"
+      )
+```
+
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+
+``` r
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year)) + 
+  facet_wrap(hu_12_name~.) +
+  #geom_line(aes(x=median_year,y=installdat, group=ownership, color=ownership)) + 
+  geom_point(aes(x=median_year,y=installdat, group=ownership, color=ownership)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  #scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Record Install Data VS Median Neighborhood Age",
+       subtitle = "",
+       x = "Median Age of Surrounding Development",
+       y = "Install Date"
+      )
+```
+
+    ## Warning: Removed 403 rows containing missing values (geom_point).
+
+<img src="BMPs_HUC12_files/figure-gfm/bmp_install_date_v_neighborhood_age-1.png" style="display: block; margin: auto;" />
+
+``` r
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1960) %>%
+  ggplot(aes(x=median_year, y=area) ) +
+    geom_hex(bins = 70) +
+    scale_fill_continuous(type = "viridis",trans='log2') +
+    theme_bw()
+```
+
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 ## BMP Inlets
 
@@ -272,7 +426,7 @@ ggplot() +
     geom_sf(data=bmps_gdf, aes(fill=bmptype))
 ```
 
-![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
 
 ``` r
     #scale_fill_viridis_c(option = "plasma")
@@ -317,45 +471,11 @@ ggplot() +
 
     ## Warning: Transformation introduced infinite values in discrete y-axis
 
-![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+![](BMPs_HUC12_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
 
 ``` r
 #Import libraries
-library(spatstat)
-```
-
-    ## Loading required package: spatstat.data
-
-    ## Loading required package: nlme
-
-    ## 
-    ## Attaching package: 'nlme'
-
-    ## The following object is masked from 'package:dplyr':
-    ## 
-    ##     collapse
-
-    ## Loading required package: rpart
-
-    ## 
-    ## spatstat 1.63-3       (nickname: 'Wet paint') 
-    ## For an introduction to spatstat, type 'beginner'
-
-    ## 
-    ## Note: spatstat version 1.63-3 is out of date by more than 10 months; we recommend upgrading to the latest version.
-
-    ## 
-    ## Attaching package: 'spatstat'
-
-    ## The following objects are masked from 'package:ggpubr':
-    ## 
-    ##     border, rotate
-
-    ## The following object is masked from 'package:MASS':
-    ## 
-    ##     area
-
-``` r
+#library(spatstat)
 #library(rgdal)
 
 #huc12_culverts_df <- get_postgis_query(con, 

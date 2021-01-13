@@ -52,6 +52,8 @@ docker cp nutrient-loading-model_postgis_1:/etc/postgresql/wrri_pg_bak .
 
 Finally, update the backup in the shared Google Drive to share with others.
 
+### Load directly from PGAdmin4
+
 
 ### Setup PGAdmin4
 

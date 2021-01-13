@@ -159,8 +159,13 @@ query = paste('SELECT
 	bmp.featuretyp,
 	bmp.bmptype,
 	bmp.installdat,
+	bmp.ownership,
+	bmp.lifecycle,
+	bmp.comments,
+	sa.hu_12_name,
 	(SUM(ST_AREA(bmp.geom)) / 1e6) as area,
-	cast(avg(cast(bf.year_built as integer)) as integer) as "year",
+	cast(avg(cast(bf.year_built as integer)) as integer) as mean_year,
+	PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY cast(bf.year_built as integer)) as median_year,
 	sa.geom
 FROM sw_waterbodies_bmp_scm_greensboro as bmp
 JOIN building_footprints as bf on ST_INTERSECTS(ST_Buffer(bmp.geom, 500), bf.geom)
@@ -169,9 +174,13 @@ GROUP BY
 		bmp.assetid,
 		bmp.featuretyp,
 		bmp.bmptype,
-		bmp.installdat, 
+		bmp.installdat,
+		bmp.ownership,
+		bmp.lifecycle,
+		bmp.comments,
+		sa.hu_12_name,
 		sa.geom
-ORDER BY installdat'
+ORDER BY median_year'
 )
 
 greensboro_bmp_year_area_gdf <- st_read(con,query = query)
@@ -182,7 +191,7 @@ greensboro_bmp_year_area_gdf <- st_read(con,query = query)
 
 ```{r}
 head(greensboro_bmp_year_area_gdf, 5)
-ggplot(greensboro_bmp_year_area_gdf, aes(y=area, x=year, group= bmptype)) + 
+ggplot(greensboro_bmp_year_area_gdf, aes(x=median_year,y=area, group= bmptype)) + 
   geom_line() +
   #scale_fill_distiller(palette = "YlGnBu", direction=1) +
   labs(color="Buiding Inclusion",
@@ -193,8 +202,8 @@ ggplot(greensboro_bmp_year_area_gdf, aes(y=area, x=year, group= bmptype)) +
   #geom_text(aes(label= area),color="white", face="bold", size=rel(3.5))
 ```
 
-```{r, fig.width=12, fig.height= 9, fig.align='center'}
-#head(all_bf_gdf)
+```{r Total-BMP/SCM-Area-(SqKm)-per-HUC12, fig.width=12, fig.height= 9, fig.align='center'}
+
 counties_sf <- st_read(con, query= paste(
     "SELECT sa.geom 
 		FROM counties, huc12_study_area as sa WHERE countyname = 'Guilford' and ST_INTERSECTS(counties.geom, sa.geom)"))
@@ -203,17 +212,151 @@ greensboro_bmp_year_area_gdf %>%
 ggplot() +
    # facet_grid(year_built~.,rows = vars(5)) +
     geom_sf(data=counties_sf) +
-    facet_wrap(year~., ncol = 10) +
+    facet_wrap(median_year~., ncol = 10) +
     geom_sf(aes(fill = area)) +
     scale_fill_viridis_c(name="Total BMP/SCM Area (Sq Km)",trans='log2') + 
     theme_map() +
     labs( title = "Total BMP/SCM Area (Sq Km) per HUC12",
        subtitle = "1970 - 2014")
+
 ```
 
+```{r bmp_count_per_subwatershed_facet_plot, fig.width=12, fig.height= 9, fig.align='center'}
+
+#head(greensboro_bmp_year_area_gdf)
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year,y=count)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_line(aes(x=median_year,y=count)) + 
+  geom_point(aes(x=median_year,y=count)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  scale_y_continuous(trans='log10') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Cumulative Count Per Subwatershed",
+       subtitle = "",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM"
+      )
+
+
+```
+
+```{r bmp_count_per_subwatershed_area_type_facet_plot, fig.width=12, fig.height= 9, fig.align='center'}
+
+#head(greensboro_bmp_year_area_gdf)
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year,y=count)) + 
+  facet_wrap(hu_12_name~ownership) +
+  geom_line(aes(x=median_year,y=count, group=bmptype, color=bmptype)) + 
+  geom_point(aes(x=median_year,y=count, group=bmptype, color=bmptype, cex=area)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  scale_y_continuous(trans='log10') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Cumulative Count Per Subwatershed",
+       subtitle = "by BMP/SCM Ownership and BMP/SCM Type",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM"
+      )
+
+
+
+```
 
 ```{r}
-head(greensboro_bmp_year_area_gdf)
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year,y=count)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_line(aes(x=median_year,y=count, group=bmptype, color=bmptype)) + 
+  geom_point(aes(x=median_year,y=count, group=bmptype, color=bmptype, cex=cumarea)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Type Cumulative Count",
+       subtitle = "",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM in HUC12"
+      )
+```
+
+```{r bmp_count_per_subwatershed_area_facet_plot, fig.width=12, fig.height= 9, fig.align='center'}
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_line(aes(x=median_year,y=cumarea, group=ownership, color=ownership)) + 
+  geom_point(aes(x=median_year,y=cumarea, group=ownership, color=ownership)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  #scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Cumulative Area KM2",
+       subtitle = "by Ownership",
+       x = "Median Age of Surrounding Development",
+       y = "Cumulative Total Area of BMP/SCMs"
+      )
+```
+
+```{r}
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1960) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year)) + 
+  facet_wrap(hu_12_name~.) +
+  geom_area(aes(x=median_year,y=count, fill=bmptype)) + 
+  #geom_point(aes(x=median_year,y=count, group=bmptype, color=bmptype, cex=cumarea)) + 
+  #scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  #scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Type Cumulative Count",
+       subtitle = "by BMP/SCM Ownership",
+       x = "BMP/SCM install Date Estimate (Median Age of Surrounding Development)",
+       y = "Cumulative Total of BMP/SCM in HUC12"
+      )
+```
+
+```{r bmp_install_date_v_neighborhood_age, fig.width=12, fig.height= 9, fig.align='center'}
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1950) %>%
+  group_by(hu_12_name) %>% mutate(count=row_number(), cumarea=cumsum(area)) %>%
+  ggplot(aes(x=median_year)) + 
+  facet_wrap(hu_12_name~.) +
+  #geom_line(aes(x=median_year,y=installdat, group=ownership, color=ownership)) + 
+  geom_point(aes(x=median_year,y=installdat, group=ownership, color=ownership)) + 
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() +
+  #scale_y_continuous(trans='log2') +
+  #scale_fill_distiller(palette = "YlGnBu", direction=1) +
+  labs(
+       title = "BMP & SCM Record Install Data VS Median Neighborhood Age",
+       subtitle = "",
+       x = "Median Age of Surrounding Development",
+       y = "Install Date"
+      )
+```
+
+```{r}
+greensboro_bmp_year_area_gdf %>%
+  filter(median_year >= 1960) %>%
+  ggplot(aes(x=median_year, y=area) ) +
+    geom_hex(bins = 70) +
+    scale_fill_continuous(type = "viridis",trans='log2') +
+    theme_bw()
 ```
 
 

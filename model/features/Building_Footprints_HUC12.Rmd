@@ -248,7 +248,11 @@ all_bf_gdf <- st_read(con,query = query)
 #head(all_bf_gdf)
 all_bf_gdf %>%
 ggplot() +
-   # facet_grid(year_built~.,rows = vars(5)) +
+```
+
+
+```{r, fig.width=12, fig.height= 9, fig.align='center'}
+# facet_grid(year_built~.,rows = vars(5)) +
     geom_sf(data=counties_sf) +
     facet_wrap(year_built~., ncol = 10) +
     geom_sf(aes(fill = total_building_sq_km)) +
