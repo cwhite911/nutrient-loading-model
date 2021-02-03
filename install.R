@@ -41,3 +41,5 @@ install.packages("RPostgreSQL")
 install.packages("postGIStools")
 install.packages('rstan')
 install.packages("GGally")
+install.packages("rgrass7", dependencies = TRUE)
+

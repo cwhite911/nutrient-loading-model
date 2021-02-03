@@ -11,23 +11,86 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r libs, include=FALSE}
+library(tidyr)
+
+library(ggplot2)
+library(ggpubr) # 'ggplot2' Based Publication Ready Plots
+# library(matrixStats) # Functions that Apply to Rows and Columns of Matrices (and to Vectors)
+library(pacman) # Package Management Tool
+library(cowplot) # add-on to ggplot. It provides various features that help with creating publication-quality 
+library(RColorBrewer)
+library(rgeos)
+library(sf)
+library(rgrass7)
+library(rgdal)
+require(gridExtra)
+
+```
+
+
 # Stream Segment Analysis
 
 Investigate the differnce between contributing areas for stream segments with and without stream buffers.
 
 ## Data
 
-* DEM - 10m or 30m
-* Subwaterheds defined by study or derived through DEM data/maybe compare results
+* QL2 3M DEM
+* Load Monitoring Sites
 * Land-Use we can either use NWALT or NLCD
 
 ## Methods
+
+Connect to GRASS
+```{r}
+# initialisation of GRASS in the North Carolina sample dataset
+#6542
+rgrass7::initGRASS(gisBase = "/usr/lib/grass76", 
+          home = tempdir(), 
+          gisDbase = "../../grassdata",
+          location="wrri_nad83_6542",
+          mapset="wrri10m",
+          override = TRUE)
+```
+
+
+```{r}
+rgrass7::execGRASS("g.region", parameters= list(vector = "subwatersheds", res="10"), flags =c("p"))
+```
+
+# MASK Already set
+```{r}
+#rgrass7::execGRASS("r.mask", parameters = list(raster = "MASK"))
+```
+
+
+# Import QLD 10m DEMs and create mosaic for the study area.
+
 
 1. Calculate stream segments.
 
 Use GRASS GIS r.watershed to get stream flow accumulation, streams,
 
-[r.stream.segment](https://grass.osgeo.org/grass78/manuals/addons/r.stream.segment.html)
+[r.stream.segment](https://grass.osgeo.org/grass78/manuals/addons/r.stream.segment.html
+
+Layer Names
+
+```{r}
+dem <- "dem_10m_mosaic" #Patched DEM
+res < - 10 #meters
+
+# r.watershed config
+basin_threshold <- 10000
+
+# r.watershed outputs
+drainage <- "direction_10k"
+streams <- "streams_10k" 
+basins <- "basins_10k" 
+accumulation <-"accumulation_10k"
+
+
+```
+
 
 ```{r}
 # Shell GRASS Example
@@ -36,29 +99,190 @@ Use GRASS GIS r.watershed to get stream flow accumulation, streams,
 #r.stream.order stream_vect=streams direction=direction_10k strahler=riverorder_strahler
 #r.stream.segment stream_rast=riverorder_strahler direction=direction_10k \
 #  elevation=elevation segments=river_segment sectors=river_sector
+rgrass7::execGRASS("g.region", parameters = list(raster=dem, res=res))
+rgrass7::execGRASS("r.watershed", 
+                   parameters = list(
+                     elevation=dem, 
+                     threshold=basin_threshold,
+                     drainage=drainage, 
+                     stream=streams, 
+                     basin=basins,
+                     accumulation=accumulation,
+                     memory=6500
+                    ),
+                   flags = c("m")
+                   )
+rgrass7::execGRASS("db.connect", flags = c("p"))
 ```
 
 2. Calculate the contributing area.
 
 [r.water.outlet](https://grass.osgeo.org/grass79/manuals/r.water.outlet.html)
+
+
 ```{r}
 # the watershed outlet position should be placed on a stream (from
 # accumulation map):
-# r.watershed elev_lid792_1m threshold=5000 accumulation=accum_5K drainage=draindir_5K basin=basin_5K
 # r.water.outlet input=direction_10k output=basin coordinates=<east,north>
 ```
 
 3. Calculate total area of defined land-use in contributing area.
+
+
 ```{r}
-# 1. Set the computational region to the calcuated basin (contributing area)
-# 2. Use r.stats to calculate total area of each land-use within basin and save results
-# 3. Repeat this step and save results to db
+df_nwalt_subwatershed_1992 <- read.table(
+  "nwalt_subwatershed_1992.csv",
+  sep=",", 
+  header=FALSE,
+  col.names=c("site_num", "site_id","landclass","unk1", "area_sqm", "cell_count"))
+
+df_nwalt_subwatershed_2012 <- read.table(
+  "nwalt_subwatershed_2012.csv",
+  sep=",", 
+  header=FALSE,
+  col.names=c("site_num", "site_id","landclass","unk1", "area_sqm", "cell_count"))
+
+
+# Add year field to dataframes
+df_nwalt_subwatershed_1992$year <- as.Date("01/01/1992", format="%m/%d/%Y")
+df_nwalt_subwatershed_2012$year <- as.Date("01/01/2012", format="%m/%d/%Y")
+
+# Merge each year into a signle dataframe
+df_nwalt_subwatershed <- bind_rows(df_nwalt_subwatershed_1992,df_nwalt_subwatershed_2012)
+
+# ref https://pubs.usgs.gov/ds/0948/ds948.pdf page 7
+nwalt_class_map <- c(
+    "Water"=11,
+    "Wetlands"=12,
+    "Major Transportation"=21,
+    "Commercial/Services"=22,
+    "Industrial/Military"=23,
+    "Recreation"=24,
+    "Residential, High Density"=25,
+    "Residential, Low-Medium Density"=26,
+    "Developed, Other"=27,
+    "Urban Interface High"=31,
+    "Urban Interface Low Medium"=32,
+    "Anthropogenic Other"=33,
+    "Mining/Extraction"=41,
+    "Timber and Forest Cutting (1992-2012 only)"= 42,
+    "Crops"=43,
+    "Pasture/Hay"=44,
+    "Grazing Potential"=45,
+    "Low Use"=50,
+    "Very Low Use, Conservation"=60
+)
+
+# Create factor for nwalt classes
+df_nwalt_subwatershed$landclass_factor <- as.factor(haven::labelled(
+  df_nwalt_subwatershed$landclass,
+  labels = nwalt_class_map))
+
+
+df_nwalt_subwatershed %>%
+  filter(site_num == 1) %>%
+  ggplot(aes(year,area_sqm, color=landclass_factor)) +
+   geom_line() +
+   geom_point()
 ```
 
 4. Compare land-use in contributing areas from buffered and unbuffered stream segments.
 ```{r}
 # Use calcuated data to analysize if a statistical difference exists between land-use distribution in the contributing 
 # areas a buffered vs. unbuffered stream segments.
+```
+
+5. Create Variable Flood Plain Map
+
+Generate the partial derivative dx and dy
+```{r}
+slope <- "slope"
+aspect <- "aspect"
+dx <- "dx"
+dy <- "dy"
+rgrass7::execGRASS("r.slope.aspect",
+                   parameters=list(
+                    elevation=dem,
+                    slope=slope,
+                    aspect=aspect,
+                    dx=dx,
+                    dy=dy
+                  )
+)
+
+```
+
+
+Set manning values form 
+
+```{r}
+rgrass7::execGRASS("r.recode",
+                   parameters = list(
+                     input=nwalt_data,
+                     output=mancover,
+                     rules="./nwalt_to_mannings.txt"
+                   ))
+```
+
+
+r.recode input=NLCD_2016_Land_Cover_L48_20190424@wrri output=raincover rules=./nlcd_to_rain.txt
+
+```{r}
+rgrass7::execGRASS("r.recode",
+                   parameters = list(
+                     input=nwalt_data,
+                     output=raincover,
+                     rules="./nwalt_to_raincover.txt"
+                   ))
+```
+
+r.sim.water -t -s --overwrite elevation=dem_mosaic@PERMANENT dx=dx@wrri dy=dy@wrri rain=raincover@wrri man=mancover@wrri depth=HR6_depth discharge=HR6_disch nwalkers=1000000 niterations=30 random_seed=5 nprocs=14
+
+```{r}
+rgrass7::execGRASS("r.sim.water",
+                   parameters = list(
+                     elevation=dem,
+                     dx=dx,
+                     dy=dy,
+                     rain="raincover",
+                     man="mancover",
+                     depth="depth",
+                     discharge="disch",
+                     nwalkers=1000000,
+                     niteraction=30,
+                     random_seed=5,
+                     nprocs=14
+                     ),
+                     flags=c("overwrite", "t", "s")
+                   )
+```
+
+
+Create vartiable Floodplain
+r.mapcalc --overwrite expression=HR6_depth_filtered = if(HR6_depth.29@wrri >= 0.05, 1, null())
+
+```{r}
+
+rgrass7::execGRASS("r.mapcalc", parameters = list(
+  expression="depth_filtered = if(depth.29 >= 0.05,1, null())"
+))
+```
+
+
+r.neighbors -c --overwrite input=HR6_depth_filtered@wrri output=moving_stream_buffer method=median size=9
+
+```{r}
+
+
+rgrass7::execGRASS("r.neighbors",
+                   parameters = list(
+                     input="depth_filtered",
+                     output="moving_stream_buffer",
+                     method="median",
+                     size=9
+                   ),
+                   flags=c("overwrite", "c")
+                   )
 ```
 
 ## Results

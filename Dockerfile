@@ -5,6 +5,8 @@ FROM rocker/verse:3.6.3
 COPY apt.txt ${HOME}
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
+    proj-bin \
+    proj-data \
     lbzip2 \
     libfftw3-dev \
     libgdal-dev \
@@ -23,12 +25,15 @@ RUN apt-get update \
     libsqlite3-dev \
     libssl-dev \
     libudunits2-dev \
+    libxml2-dev \
     netcdf-bin \
     postgis \
     protobuf-compiler \
     sqlite3 \
     tk-dev \
-    unixodbc-dev
+    unixodbc-dev \
+    grass \
+    grass-dev
 
 # https://github.com/rocker-org/geospatial
 ## Run an install.R script, if it exists.

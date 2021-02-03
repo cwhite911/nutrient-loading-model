@@ -6,6 +6,9 @@
 # Data
 model/data
 model/kitematic
+kitematic
+grassdata
+.bash_history
 
 # Postgres Backup
 wrri_pg_bak
