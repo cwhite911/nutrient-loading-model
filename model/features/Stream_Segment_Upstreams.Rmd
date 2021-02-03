@@ -130,8 +130,39 @@ rgrass7::execGRASS("db.connect", flags = c("p"))
 
 
 ```{r}
+
+nwalt_years <- c("1974", "1982", "1992", "2002", "2012")
+for(year in nwalt_years) {
+  
+}
+
+
+rgrass7::execGRASS("r.stats", parameters = list(input="subwatersheds,nwalt_landuse_1974@wrri10m", separator=",", output="nwalt_subwatershed_1974.csv"), flags = c("a","c","l", "n", "overwrite"))
+rgrass7::execGRASS("r.stats", parameters = list(input="subwatersheds,nwalt_landuse_1982@wrri10m", separator=",", output="nwalt_subwatershed_1982.csv"), flags = c("a","c","l", "n", "overwrite"))
+rgrass7::execGRASS("r.stats", parameters = list(input="subwatersheds,nwalt_landuse_1992@wrri10m", separator=",", output="nwalt_subwatershed_1992.csv"), flags = c("a","c","l", "n", "overwrite"))
+rgrass7::execGRASS("r.stats", parameters = list(input="subwatersheds,nwalt_landuse_2002@wrri10m", separator=",", output="nwalt_subwatershed_2002.csv"), flags = c("a","c","l", "n", "overwrite"))
+rgrass7::execGRASS("r.stats", parameters = list(input="subwatersheds,nwalt_landuse_2012@wrri10m", separator=",", output="nwalt_subwatershed_2012.csv"), flags = c("a","c","l", "n", "overwrite"))
+
+df_nwalt_subwatershed_1974 <- read.table(
+  "nwalt_subwatershed_1974.csv",
+  sep=",", 
+  header=FALSE,
+  col.names=c("site_num", "site_id","landclass","unk1", "area_sqm", "cell_count"))
+
+df_nwalt_subwatershed_1982 <- read.table(
+  "nwalt_subwatershed_1982.csv",
+  sep=",", 
+  header=FALSE,
+  col.names=c("site_num", "site_id","landclass","unk1", "area_sqm", "cell_count"))
+
 df_nwalt_subwatershed_1992 <- read.table(
   "nwalt_subwatershed_1992.csv",
+  sep=",", 
+  header=FALSE,
+  col.names=c("site_num", "site_id","landclass","unk1", "area_sqm", "cell_count"))
+
+df_nwalt_subwatershed_2002 <- read.table(
+  "nwalt_subwatershed_2002.csv",
   sep=",", 
   header=FALSE,
   col.names=c("site_num", "site_id","landclass","unk1", "area_sqm", "cell_count"))
@@ -144,11 +175,19 @@ df_nwalt_subwatershed_2012 <- read.table(
 
 
 # Add year field to dataframes
+df_nwalt_subwatershed_1974$year <- as.Date("01/01/1974", format="%m/%d/%Y")
+df_nwalt_subwatershed_1982$year <- as.Date("01/01/1982", format="%m/%d/%Y")
 df_nwalt_subwatershed_1992$year <- as.Date("01/01/1992", format="%m/%d/%Y")
+df_nwalt_subwatershed_2002$year <- as.Date("01/01/2002", format="%m/%d/%Y")
 df_nwalt_subwatershed_2012$year <- as.Date("01/01/2012", format="%m/%d/%Y")
-
 # Merge each year into a signle dataframe
-df_nwalt_subwatershed <- bind_rows(df_nwalt_subwatershed_1992,df_nwalt_subwatershed_2012)
+df_nwalt_subwatershed <- bind_rows(
+  df_nwalt_subwatershed_1974,
+  df_nwalt_subwatershed_1982,
+  df_nwalt_subwatershed_1992,
+  df_nwalt_subwatershed_2002,
+  df_nwalt_subwatershed_2012
+)
 
 # ref https://pubs.usgs.gov/ds/0948/ds948.pdf page 7
 nwalt_class_map <- c(
@@ -178,12 +217,34 @@ df_nwalt_subwatershed$landclass_factor <- as.factor(haven::labelled(
   df_nwalt_subwatershed$landclass,
   labels = nwalt_class_map))
 
+```
 
+```{r}
 df_nwalt_subwatershed %>%
   filter(site_num == 1) %>%
   ggplot(aes(year,area_sqm, color=landclass_factor)) +
    geom_line() +
-   geom_point()
+   geom_point() +
+  labs(color="NWALT Classification",
+       title = "NWALT Land Use for Subwatershed A1",
+       subtitle = "from 1974 to 2012",
+       x = "Year",
+       y = "m2")
+```
+
+```{r, fig.width=15, fig.height= 25, fig.align='center'}
+df_nwalt_subwatershed %>%
+  # filter(site_num < 100) %>%
+  ggplot(aes(year,area_sqm, color=landclass_factor)) +
+  facet_wrap(site_id~., ncol = 6) +
+   geom_line() +
+   geom_point() +
+  scale_y_continuous(trans='log10') +
+  labs(color="NWALT Classification",
+       title = "NWALT Land Use for Subwatersheds",
+       subtitle = "from 1974 to 2012",
+       x = "Year",
+       y = "m2")
 ```
 
 4. Compare land-use in contributing areas from buffered and unbuffered stream segments.

@@ -71,8 +71,8 @@ done
 
 # r.recode input=NLCD_2016_Land_Cover_L48_20190424 output=mancover rules=/home/coreywhite/Documents/GitHub/FallsJordan/nutrient-loading-model/model/features/land_to_mannings.txt
 
-nwalt_landuse_1974|1974|1974
-nwalt_landuse_1982|1982|1982
-nwalt_landuse_1992|1992|1992
-nwalt_landuse_2002|2002|2002
-nwalt_landuse_2012|2012|2012
+# nwalt_landuse_1974|1974|1974
+# nwalt_landuse_1982|1982|1982
+# nwalt_landuse_1992|1992|1992
+# nwalt_landuse_2002|2002|2002
+# nwalt_landuse_2012|2012|2012
