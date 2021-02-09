@@ -42,7 +42,7 @@ Investigate the differnce between contributing areas for stream segments with an
 ## Methods
 
 Connect to GRASS
-```{r}
+```{r initgrass, eval=FALSE}
 # initialisation of GRASS in the North Carolina sample dataset
 #6542
 rgrass7::initGRASS(gisBase = "/usr/lib/grass76", 
@@ -52,11 +52,11 @@ rgrass7::initGRASS(gisBase = "/usr/lib/grass76",
           mapset="wrri10m",
           override = TRUE)
 ```
-```{r}
+```{r listvectors, eval=FALSE}
 rgrass7::execGRASS("g.list", parameters = list(type = "vector"))
 ```
 
-```{r}
+```{r listRasters, eval=FALSE}
 rgrass7::execGRASS("g.list", parameters = list(type = "raster"))
 ```
 
@@ -127,7 +127,7 @@ rgrass7::execGRASS("r.watershed",
 
 Calculate Stream Buffer
 
-```{r}
+```{r create5kstreamBuffer30m, eval=FALSE}
 stream_buffer <- paste0(streams,"_", buffer_dist,"m")
 buffer_dist <- 15 # radius in meters
 rgrass7::execGRASS("r.buffer",
@@ -155,7 +155,7 @@ rgrass7::execGRASS("r.buffer",
 
 3. Calculate total area of defined land-use in contributing area.
 
-```{r}
+```{r calculateLanduse, eval=TRUE}
 
 calucuteLandUsePerSubwatershed <- function(date_range, landuse_file_prefix, subwatershed_csv_prefix, landuse_class_map) {
   df_landuse_subwatershed <- NULL
@@ -200,7 +200,7 @@ calucuteLandUsePerSubwatershed <- function(date_range, landuse_file_prefix, subw
 
 ```
 
-```{r}
+```{r nwalt_subwatershed}
 # ref https://pubs.usgs.gov/ds/0948/ds948.pdf page 7
 nwalt_class_map <- c(
     "Water"=11,
@@ -224,27 +224,6 @@ nwalt_class_map <- c(
     "Very Low Use, Conservation"=60
 )
 
-nwalt_reclass_map <- c(
-    "Water"=11,
-    "Wetlands"=12,
-    "Major Transportation"=21,
-    "Commercial/Services"=22,
-    "Industrial/Military"=23,
-    "Recreation"=24,
-    "Residential, High Density"=25,
-    "Residential, Low-Medium Density"=26,
-    "Developed, Other"=27,
-    "Urban Interface High"=31,
-    "Urban Interface Low Medium"=32,
-    "Anthropogenic Other"=33,
-    "Mining/Extraction"=41,
-    "Timber and Forest Cutting (1992-2012 only)"= 42,
-    "Crops"=43,
-    "Pasture/Hay"=44,
-    "Grazing Potential"=45,
-    "Low Use"=50,
-    "Very Low Use, Conservation"=60
-)
 
 nwalt_years <- c("1974", "1982", "1992", "2002", "2012")
 nwalt_prefix <- "nwalt_landuse_"
@@ -253,7 +232,73 @@ nwalt_subwatershed_csv_prefix <-"nwalt_subwatershed_"
 df_nwalt_subwatershed <- calucuteLandUsePerSubwatershed(nwalt_years,nwalt_prefix,nwalt_subwatershed_csv_prefix, nwalt_class_map)
 
 ```
+
 ```{r}
+
+df_nwalt_subwatershed <- mutate(df_nwalt_subwatershed,nwalt_class_label=recode(landclass, 
+                         `11`=  "Water",
+                         `12`=  "Wetlands",
+                         `21` = "Developed, Major Transportation",
+                         `22` = "Developed, Commercial/Services",
+                         `23` = "Developed, Industrial/Military",
+                         `24` = "Developed, Recreation",
+                         `25` = "Developed, Residential, High",
+                         `26` = "Developed, Residential, Low-Medium",
+                         `27` = "Developed, Other",
+                         `31` = "Semi-developed, urb interface high",
+                         `32` = "Semi-developed, urb interface low-med",
+                         `33` = "Semi-developed, anthropogenic other",
+                         `41` = "Production, mining",
+                         `42` = "Prodution, timber and forest cutting",
+                         `43` = "Production, crops",
+                         `44` = "Production, pasture/hay",
+                         `45` = "Production, grazing potential",
+                         `50` = "Low usage",
+                         `60` = "Very low usage, conservation"
+                         ))
+
+nwalt_class_colors <- c(
+  "Water" = "#526fa3",
+  "Wetlands" = "#b8d9ec",
+  "Developed, Major Transportation" = "#010101",
+  "Developed, Commercial/Services" = "#00c7f9",
+  "Developed, Industrial/Military" = "#002579",
+  "Developed, Recreation" = "#d2ffb8",
+  "Developed, Residential, High" = "#aa0000",
+  "Developed, Residential, Low-Medium" = "#f87a7b",
+  
+  "Developed, Other" = "#fbbfbe",
+  "Semi-developed, urb interface high" = "#ffa607",
+  "Semi-developed, urb interface low-med" = "#ffebc0",
+  "Semi-developed, anthropogenic other" = "#b2b2b2",
+  "Production, mining" = "#4e4e4e",
+  "Prodution, timber and forest cutting" = "#b8e62f",
+  "Production, crops" = "#b26c30",
+  "Production, pasture/hay" = "#dcd443",
+  "Production, grazing potential" = "#faff01",
+  "Low usage" = "#4de600",
+  "Very low usage, conservation" = "#39a600"
+  )
+
+df_nwalt_subwatershed %>%
+  filter(site_num == 23) %>%
+  group_by(year, nwalt_class_label) %>%
+  summarize(sum = sum(area_sqm)) %>%
+  mutate(km=sum / 1e6) %>%
+  ggplot(aes(year,km, color=nwalt_class_label)) +
+  geom_line() +
+  geom_point() +
+  #stat_smooth() +
+  labs(color="NWALT Classification",
+       title = "NWALT Land Use",
+       subtitle = "Subwatershed A23 from 1974 to 2012",
+       x = "Year",
+       y = "Area (km2)") +
+  scale_color_manual(values = nwalt_class_colors)
+```
+
+
+```{r landuseA1}
 
 df_nwalt_subwatershed <- mutate(df_nwalt_subwatershed,wrriclass=recode(landclass, 
                          `11`= "Undeveloped",
@@ -284,7 +329,7 @@ nwalt_reclass_colors <- c(
   )
 
 df_nwalt_subwatershed %>%
-  filter(site_num == 1) %>%
+  filter(site_num == 23) %>%
   group_by(year, wrriclass) %>%
   summarize(sum = sum(area_sqm)) %>%
   mutate(km=sum / 1e6) %>%
@@ -293,13 +338,30 @@ df_nwalt_subwatershed %>%
   geom_point() +
   #stat_smooth() +
   labs(color="NWALT Classification",
-       title = "NWALT Land Use for Subwatershed A1",
-       subtitle = "from 1974 to 2012",
+       title = "NWALT Land Use",
+       subtitle = "Subwatershed A23 from 1974 to 2012",
        x = "Year",
        y = "Area (km2)") +
   scale_color_manual(values = nwalt_reclass_colors)
 
+
+df_nwalt_subwatershed %>%
+  filter(site_num == 22) %>%
+  group_by(year, wrriclass) %>%
+  summarize(sum = sum(area_sqm)) %>%
+  mutate(km=sum / 1e6) %>%
+  ggplot(aes(year,km, color=wrriclass)) +
+  geom_line() +
+  geom_point() +
+  #stat_smooth() +
+  labs(color="NWALT Classification",
+       title = "NWALT Land Use",
+       subtitle = "Subwatershed A23 from 1974 to 2012",
+       x = "Year",
+       y = "Area (km2)") +
+  scale_color_manual(values = nwalt_reclass_colors)
 ```
+
 
 
 ```{r}
@@ -382,7 +444,7 @@ nwalt_reclass_colors <- c(
   )
 
 df_nwalt_subwatershed_30m_rip_buffer %>%
-  filter(site_num == 1) %>%
+  filter(site_num == 23) %>%
   group_by(year, wrriclass) %>%
   summarize(sum = sum(area_sqm)) %>%
   mutate(km=sum / 1e6) %>%
@@ -390,8 +452,23 @@ df_nwalt_subwatershed_30m_rip_buffer %>%
   geom_line() +
   geom_point() +
   labs(color="NWALT Classification",
-       title = "NWALT Land Use within 30m Stream Buffer for Subwatershed A1",
-       subtitle = "from 1974 to 2012",
+       title = "NWALT Land Use within 10m DEM Derived (10k) 30m Stream Buffer",
+       subtitle = "Subwatershed A23 from 1974 to 2012",
+       x = "Year",
+       y = "Area (km2)") +
+  scale_color_manual(values = nwalt_reclass_colors)
+
+df_nwalt_subwatershed_30m_rip_buffer %>%
+  filter(site_num == 22) %>%
+  group_by(year, wrriclass) %>%
+  summarize(sum = sum(area_sqm)) %>%
+  mutate(km=sum / 1e6) %>%
+  ggplot(aes(year,km, color=wrriclass)) +
+  geom_line() +
+  geom_point() +
+  labs(color="NWALT Classification",
+       title = "NWALT Land Use within 10m DEM Derived (10k) 30m Stream Buffer",
+       subtitle = "Subwatershed A22 from 1974 to 2012",
        x = "Year",
        y = "Area (km2)") +
   scale_color_manual(values = nwalt_reclass_colors)
@@ -496,7 +573,7 @@ nwalt_reclass_colors <- c(
   )
 
 df_nwalt_subwatershed_nhd_plus_30m_rip_buffer %>%
-  filter(site_num == 1) %>%
+  filter(site_num == 23) %>%
   group_by(year, wrriclass) %>%
   summarize(sum = sum(area_sqm)) %>%
   mutate(km=sum / 1e6) %>%
@@ -504,13 +581,34 @@ df_nwalt_subwatershed_nhd_plus_30m_rip_buffer %>%
   geom_line() +
   geom_point() +
   labs(color="NWALT Classification",
-       title = "NWALT Land Use within 30m Stream Buffer for Subwatershed A1",
-       subtitle = "from 1974 to 2012",
+       title = "NWALT Land Use within NHDPlus 30m Stream Buffer",
+       subtitle = " Subwatershed A23 from 1974 to 2012",
+       x = "Year",
+       y = "Area (km2)") +
+  scale_color_manual(values = nwalt_reclass_colors)
+
+df_nwalt_subwatershed_nhd_plus_30m_rip_buffer %>%
+  filter(site_num == 22) %>%
+  group_by(year, wrriclass) %>%
+  summarize(sum = sum(area_sqm)) %>%
+  mutate(km=sum / 1e6) %>%
+  ggplot(aes(year,km, color=wrriclass)) +
+  geom_line() +
+  geom_point() +
+  labs(color="NWALT Classification",
+       title = "NWALT Land Use within NHDPlus 30m Stream Buffer",
+       subtitle = " Subwatershed A22 from 1974 to 2012",
        x = "Year",
        y = "Area (km2)") +
   scale_color_manual(values = nwalt_reclass_colors)
 
 ```
+
+view stream data
+
+```{r}
+```
+
 
 ## Predicit Missing Values 
 
@@ -591,6 +689,16 @@ predictions
 
 5. Create Variable Flood Plain Map
 
+
+```{r, eval=FALSE}
+rgrass7::execGRASS("r.mask", flags = c("r"))
+rgrass7::execGRASS("r.mask", parameters = list(vector="subwatersheds"))
+```
+```{r, eval=FALSE}
+rgrass7::execGRASS("g.region", flags = c("p"))
+
+```
+
 Generate the partial derivative dx and dy
 ```{r}
 slope <- "slope"
@@ -600,8 +708,6 @@ dy <- "dy"
 rgrass7::execGRASS("r.slope.aspect",
                    parameters=list(
                     elevation=dem,
-                    slope=slope,
-                    aspect=aspect,
                     dx=dx,
                     dy=dy
                   ),
@@ -610,50 +716,91 @@ rgrass7::execGRASS("r.slope.aspect",
 
 ```
 
+```{r calculateLanduse, eval=TRUE}
 
-Set manning values form 
 
-```{r}
-rgrass7::execGRASS("r.recode",
+
+
+nwalt_years <- c("1974", "1982", "1992", "2002", "2012")
+nwalt_prefix <- "nwalt_landuse_"
+
+calucuteVariableFloodplain <- function(dem, date_range, landuse_file_prefix) {
+  df_landuse_subwatershed <- NULL
+  #Loop through each year of landuse data and calculate the total landuse area of each class per subwatershed per year. Return a single dataframe containing values for each year.
+  for(year in date_range) {
+    nwalt_data <- paste0(landuse_file_prefix, year, "@wrri10m")
+    #output <- paste0(subwatershed_csv_prefix, year, ".csv")
+    nwalt_date <- paste0("01/01/", year)
+    depth <- paste0("nwalt_depth_",year)
+    
+    #Set manning values form landuse
+    mancover <- paste0("mancover_nwalt_", year)
+    rgrass7::execGRASS("r.recode",
                    parameters = list(
                      input=nwalt_data,
                      output=mancover,
                      rules="./nwalt_to_mannings.txt"
                    ))
-```
-
-
-r.recode input=NLCD_2016_Land_Cover_L48_20190424@wrri output=raincover rules=./nlcd_to_rain.txt
-
-```{r}
-rgrass7::execGRASS("r.recode",
-                   parameters = list(
-                     input=nwalt_data,
-                     output=raincover,
-                     rules="./nwalt_to_raincover.txt"
-                   ))
-```
-
-r.sim.water -t -s --overwrite elevation=dem_mosaic@PERMANENT dx=dx@wrri dy=dy@wrri rain=raincover@wrri man=mancover@wrri depth=HR6_depth discharge=HR6_disch nwalkers=1000000 niterations=30 random_seed=5 nprocs=14
-
-```{r}
-rgrass7::execGRASS("r.sim.water",
+    
+    #Set variable rain cover values form landuse
+    # raincover <- paste0("raincover_nwalt_", year)
+    # rgrass7::execGRASS("r.recode",
+    #                parameters = list(
+    #                  input=nwalt_data,
+    #                  output=raincover,
+    #                  rules="./nwalt_to_raincover.txt"
+    #                ))
+    
+    # Run simwe to simulate 100year flood event
+    rgrass7::execGRASS("r.sim.water",
                    parameters = list(
                      elevation=dem,
                      dx=dx,
                      dy=dy,
-                     rain="raincover",
-                     man="mancover",
+                     #infil=,
+                     #rain=raincover,
+                     rain_value=50,
+                     man=mancover,
                      depth="depth",
-                     discharge="disch",
                      nwalkers=1000000,
-                     niteraction=30,
+                     niteraction=60,
+                     output_step=10,
                      random_seed=5,
                      nprocs=14
                      ),
-                     flags=c("overwrite", "t", "s")
+                     flags=c("overwrite", "s")
                    )
+    
+    
+    # Extract areas withw water depth greater than 0.05m
+    floodmap <- psate0("depth_filtered_", year)
+    expression <- psate0(floodmap, " = if(",depth, " >= 0.05,1, null())")
+    rgrass7::execGRASS("r.mapcalc", parameters = list(
+      expression=expression
+    ))
+    
+    # Crate floodplain by clumping together flooded areas
+    floodplain <- paste0("floodplain_", year)
+    rgrass7::execGRASS("r.neighbors",
+                   parameters = list(
+                     input=floodmap,
+                     output=floodplain,
+                     method="median",
+                     size=9
+                   ),
+                   flags=c("overwrite", "c")
+                   )
+  }
+}
+
+
+
 ```
+
+
+
+
+
 
 
 Create vartiable Floodplain
