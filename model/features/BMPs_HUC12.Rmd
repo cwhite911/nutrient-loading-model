@@ -55,7 +55,7 @@ Get HUC12 in study area
 
 hu12_df <- get_postgis_query(con, 
     "SELECT *
-     FROM huc12_study_area",
+     FROM subwatersheds",
 geom_name = "geom")
 ```
 
