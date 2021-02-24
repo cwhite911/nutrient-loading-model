@@ -24,6 +24,7 @@ services:
       # - ./postgres.conf:/etc/postgresql/postgresql.conf
       - ./wrri_pg_bak:/etc/postgresql/wrri_pg_bak
       - ./schema.sh:/docker-entrypoint-initdb.d/schema.sh
+      # - ./loadtigerdata.sh:/tmp/loadtigerdata.sh
     # command: postgres -c config_file=/etc/postgresql/postgresql.conf
     restart: always
     ports:
