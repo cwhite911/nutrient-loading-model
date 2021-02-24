@@ -25,7 +25,7 @@ library(sf)
 require(rgrass7)
 library(rgdal)
 require(gridExtra)
-
+library(ggsn)
 ```
 
 
@@ -606,9 +606,293 @@ df_nwalt_subwatershed_nhd_plus_30m_rip_buffer %>%
 
 view stream data
 
+
+
 ```{r}
+query = paste('SELECT 
+	huc.siteno,
+	sum(st_length(s1k.geom))  / 1000 as stream_length_km,
+	st_area(huc.geom) / 1e6 as huc_area_km2,
+  0 as threshold,
+	huc.geom
+FROM 
+	subwatersheds huc 
+		INNER JOIN nhd_plus_flowlines_piedmont s1k
+			on ST_INTERSECTS(huc.geom, s1k.geom)
+GROUP BY 
+	huc.siteno,
+	huc.geom'
+)
+
+nhd_stream_length_gdf <- st_read(con,query = query)
+
+
+head(nhd_stream_length_gdf)
 ```
 
+```{r streamlengthnhd, fig.width=12, fig.height= 9, fig.align='center'}
+nhd_stream_length_gdf %>%
+ggplot() +
+    geom_sf(data=counties_sf) +
+    geom_sf(aes(fill = stream_length_km)) +
+    scale_fill_viridis_c(name="Stream Length") + 
+    theme_map() +
+    labs( title = "Stream Length",
+       subtitle = "NHDPlus")
+
+nhd_stream_length_gdf %>% 
+  ggplot(aes(x=stream_length_km)) + 
+  geom_histogram(bins=15) + 
+  labs( title = "Stream Length",
+       subtitle = "NHDPlus",
+       x = "Stream Length (km)"
+       ) 
+
+```
+
+```{r streamdensity1k, fig.width=12, fig.height= 9, fig.align='center'}
+counties_sf <- st_read(con, query= paste(
+    "SELECT * FROM counties"))
+
+nhd_stream_length_gdf %>%
+  mutate(density = stream_length_km / huc_area_km2) %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    #facet_wrap(median_year~., ncol = 10) +
+    geom_sf(aes(fill = density)) +
+    scale_fill_viridis_c(name="Stream Density") + 
+    theme_map() +
+    labs( title = "Stream Density",
+       subtitle = "NHDPlus")
+
+nhd_stream_length_gdf %>% 
+  mutate(density = stream_length_km / huc_area_km2) %>%
+  ggplot(aes(x=density)) + 
+  geom_histogram(bins=20) + 
+  labs( title = "Stream Density",
+       subtitle = "NHDPlus",
+       x = "Stream Density"
+       ) 
+```
+
+
+```{r}
+query = paste('SELECT 
+	huc.siteno,
+	sum(st_length(s1k.geom))  / 1000 as stream_length_km,
+	st_area(huc.geom) / 1e6 as huc_area_km2,
+  1000 as threshold,
+	huc.geom
+FROM 
+	subwatersheds huc 
+		INNER JOIN streams_1k s1k
+			on ST_INTERSECTS(huc.geom, s1k.geom)
+-- 		subwatersheds huc1 INNER JOIN streams_3k s3k
+-- 			on ST_INTERSECTS(huc1.geom, s3k.geom)
+	
+GROUP BY 
+	huc.siteno,
+	huc.geom'
+)
+
+stream_length_gdf <- st_read(con,query = query)
+
+
+head(stream_length_gdf)
+```
+
+```{r streamlength1k, fig.width=12, fig.height= 9, fig.align='center'}
+stream_length_gdf %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    #facet_wrap(median_year~., ncol = 10) +
+    geom_sf(aes(fill = stream_length_km)) +
+    scale_fill_viridis_c(name="Stream Length") + 
+    theme_map() +
+    #scalebar(counties_sf,dist = 100, dist_unit = "km",transform = TRUE, model = "WGS84") +
+   #blank() +
+    labs( title = "Stream Length",
+       subtitle = "1k Basin Threshold")
+
+stream_length_gdf %>% 
+  ggplot(aes(x=stream_length_km)) + 
+  geom_histogram(bins=15) + 
+  labs( title = "Stream Length",
+       subtitle = "1k Basin Threshold",
+       x = "Stream Length (km)"
+       ) 
+
+```
+
+```{r streamdensity1k, fig.width=12, fig.height= 9, fig.align='center'}
+counties_sf <- st_read(con, query= paste(
+    "SELECT * FROM counties"))
+
+stream_length_gdf %>%
+  mutate(density = stream_length_km / huc_area_km2) %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    #facet_wrap(median_year~., ncol = 10) +
+    geom_sf(aes(fill = density)) +
+    scale_fill_viridis_c(name="Stream Density") + 
+    theme_map() +
+    labs( title = "Stream Density",
+       subtitle = "1k Basin Threshold")
+
+stream_length_gdf %>% 
+  mutate(density = stream_length_km / huc_area_km2) %>%
+  ggplot(aes(x=density)) + 
+  geom_histogram(bins=20) + 
+  labs( title = "Stream Density",
+       subtitle = "1k Basin Threshold",
+       x = "Stream Density"
+       ) 
+```
+```{r}
+query = paste('SELECT 
+	huc.siteno,
+	sum(st_length(s1k.geom))  / 1000 as stream_length_km,
+	st_area(huc.geom) / 1e6 as huc_area_km2,
+	3000 as threshold,
+	huc.geom
+FROM 
+	subwatersheds huc 
+		INNER JOIN streams_3k s1k
+			on ST_INTERSECTS(huc.geom, s1k.geom)
+	
+GROUP BY 
+	huc.siteno,
+	huc.geom'
+)
+
+stream_length_3k_gdf <- st_read(con,query = query)
+
+
+head(stream_length_3k_gdf)
+```
+
+
+```{r streamlength3k, fig.width=12, fig.height= 9, fig.align='center'}
+stream_length_3k_gdf %>%
+ggplot() +
+    geom_sf(data=counties_sf) +
+    geom_sf(aes(fill = stream_length_km)) +
+    scale_fill_viridis_c(name="Stream Length") + 
+    theme_map() +
+    #scalebar(counties_sf,dist = 100, dist_unit = "km",transform = TRUE, model = "WGS84") +
+   #blank() +
+    labs( title = "Stream Length",
+       subtitle = "3k Basin Threshold")
+
+stream_length_3k_gdf %>% 
+  ggplot(aes(x=stream_length_km)) + 
+  geom_histogram(bins=15) + 
+  labs( title = "Stream Length",
+       subtitle = "3k Basin Threshold",
+       x = "Stream Length (km)"
+       )
+
+
+plot_histogram <- function(df, feature) {
+    plt <- ggplot(df, aes(x=eval(parse(text=feature)))) +
+    geom_histogram(aes(y = ..density..), alpha=0.7, fill="#33AADE", color="black") +
+    geom_density(alpha=0.3, fill="red") +
+    geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), color="black", linetype="dashed", size=1) +
+    labs(x=feature, y = "Density")
+    print(plt)
+}
+plot_histogram(stream_length_3k_gdf, "stream_length_km")
+
+
+```
+```{r streamdensity3k, fig.width=12, fig.height= 9, fig.align='center'}
+counties_sf <- st_read(con, query= paste(
+    "SELECT * FROM counties"))
+
+stream_length_3k_gdf %>%
+  mutate(density = stream_length_km / huc_area_km2) %>%
+ggplot() +
+   # facet_grid(year_built~.,rows = vars(5)) +
+    geom_sf(data=counties_sf) +
+    #facet_wrap(median_year~., ncol = 10) +
+    geom_sf(aes(fill = density)) +
+    scale_fill_viridis_c(name="Stream Density") + 
+    theme_map() +
+    labs( title = "Stream Density",
+       subtitle = "3k Basin Threshold")
+
+stream_length_3k_gdf %>% 
+  mutate(density = stream_length_km / huc_area_km2) %>%
+  ggplot(aes(x=density)) + 
+  geom_histogram(bins=20) + 
+  labs( title = "Stream Density",
+       subtitle = "3k Basin Threshold",
+       x = "Stream Density"
+       ) 
+```
+
+```{r}
+t1 <- subset(stream_length_gdf, select = -c(geom) ) %>%
+  mutate(density = stream_length_km / huc_area_km2)
+t3 <- subset(stream_length_3k_gdf, select = -c(geom) ) %>%
+  mutate(density = stream_length_km / huc_area_km2)
+nhd <-subset(nhd_stream_length_gdf, select = -c(geom) )%>%
+  mutate(density = stream_length_km / huc_area_km2)
+  
+glimpse(t1)
+glimpse(t3)
+
+combo <- rbind(t1, t3, nhd)
+glimpse(combo)
+```
+
+```{r streamlengthcombohist, fig.width=12, fig.height= 9, fig.align='center'}
+
+
+ggplot(combo, aes(stream_length_km)) + 
+    geom_histogram(data = t1, fill = "red", alpha = 0.2) + 
+    geom_histogram(data = t3, fill = "blue", alpha = 0.2) +
+    geom_histogram(data = nhd, fill = "green", alpha = 0.2) +
+  labs( title = "Stream Length",
+       subtitle = "Green = NHDPlus, Blue=3k, Red=1k",
+       x = "Stream Length (km)"
+       ) +
+  scale_fill_manual(values = c("red", "blue", "green"))
+
+```
+
+```{r}
+plot_multi_histogram <- function(df, feature, label_column) {
+    plt <- ggplot(df, aes(x=eval(parse(text=feature)), fill=eval(parse(text=label_column)))) +
+    geom_histogram(alpha=0.7, position="identity", aes(y = ..density..), color="black") +
+    geom_density(alpha=0.7) +
+    geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), color="black", linetype="dashed", size=1) +
+    labs(x=feature, y = "Density")
+    plt + guides(fill=guide_legend(title=label_column))
+}
+
+plot_multi_histogram(combo, "stream_length_km", "threshold")
+
+
+```
+
+```{r streamlengthcombohist, fig.width=12, fig.height= 9, fig.align='center'}
+
+
+ggplot(combo, aes(density)) + 
+    geom_histogram(data = t1, fill = "red", alpha = 0.2) + 
+    geom_histogram(data = t3, fill = "blue", alpha = 0.2) +
+    geom_histogram(data = nhd, fill = "green", alpha = 0.2) +
+  labs( title = "Stream Density",
+       subtitle = "Green = NHDPlus, Blue=3k, Red=1k",
+       x = "Stream Density (length/area)"
+       ) +
+  scale_fill_manual(values = c("red", "blue", "green"))
+
+```
 
 ## Predicit Missing Values 
 
