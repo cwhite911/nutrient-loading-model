@@ -1,14 +1,24 @@
 # du -sh ~/Documents/QL2_DEMS/10m/*
 
-BASEDIR="/home/coreywhite/Documents/QL2_DEMS/10m/FranklinCoNC"
+# BASEDIR="/home/coreywhite/Documents/QL2_DEMS/10m/FranklinCoNC"
+# Guilford
+# BASEDIR="/home/coreywhite/Documents/QL2_DEMS/10m/ForsythCoNCQL1"
+# BASEDIR="/home/coreywhite/Documents/QL2_DEMS/10m/GuilfordCoNC"
+# BASEDIR="/home/coreywhite/Documents/QL2_DEMS/10m/RandolphCoNC"
 
-cd $BASEDIR
-# Import rasters
-for f in *.asc; do
-        r=`basename $f .asc`
-        r.import input=$f output="${r}"
-done
+# BASEDIR="/home/coreywhite/Documents/QL2_DEMS/10m/WakeCoNC"
 
+
+#Add single county 
+# cd $BASEDIR
+# # Import rasters
+# g.region res=10
+# for f in *.asc; do
+#         r=`basename $f .asc`
+#         r.import input=$f output="${r}"
+# done
+
+# Add Multiple Counties
 # for d in /your/first/dir /your/second/dir /your/third/dir; do
 # cd ${d}
 # # Import rasters
@@ -29,19 +39,19 @@ done
 #     done
 # done
 
-
+# PG:host=localhost user=postgres port=5430 password="" dbname=WRRI
 # Set hard limit for concurrent open files on os
-# ulimit -n 15000
-# ulimit -s 65536
+ulimit -n 15000
+ulimit -s 65536
 # MAPS=`g.list type=raster separator=comma pat="D10_*"`
-# MAPS1=`g.list type=raster separator=comma pat="D10_37_1*"`
-# MAPS2=`g.list type=raster separator=comma pat="D10_37_2*"`
+MAPS1=`g.list type=raster separator=comma pat="D10_37_1*"`
+MAPS2=`g.list type=raster separator=comma pat="D10_37_2*"`
 
 # echo ${#MAPS}
 # echo ${#MAPS1}
 # echo ${#MAPS2}
 
-
+# Create a mosaic of all 10m raster tiles
 # g.region raster=$MAPS1 res=10 -p
 # r.patch input=$MAPS1 output=dem_10m_mosaic_1 --overwrite
 
@@ -49,10 +59,12 @@ done
 # r.patch input=$MAPS2 output=dem_10m_mosaic_2 --overwrite
 
 # g.region raster=dem_10m_mosaic_1,dem_10m_mosaic_2 res=10 -p
+# echo "Patching Map 1 and 2"
 # r.patch input=dem_10m_mosaic_1,dem_10m_mosaic_2 output=dem_10m_mosaic --overwrite
 
-
-# r.watershed elevation=dem_10m_mosaic threshold=10000 drainage=direction_10k stream=streams_10k basin=basin_10k accumulation=accum_10k memory=10000 -m --overwrite
+# ulimit -n 1500
+# ulimit -s 8192
+r.watershed elevation=dem_10m_mosaic threshold=3000 drainage=direction_3k stream=streams_3k basin=basin_3k accumulation=accum_3k memory=10000 -m --overwrite
 # r.thin streams_50k out=streams_50k_thin --o
 # r.to.vect streams_50k_thin out=streams_50k_thin type=line
 # d.vect streams_10k_thin co=blue
