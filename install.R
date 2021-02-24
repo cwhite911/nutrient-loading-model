@@ -41,5 +41,6 @@ install.packages("RPostgreSQL")
 install.packages("postGIStools")
 install.packages('rstan')
 install.packages("GGally")
+install.packages('ggsn') # Adds scale bar to ggplot
 install.packages("rgrass7", dependencies = TRUE)
 
